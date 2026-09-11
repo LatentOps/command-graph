@@ -131,15 +131,12 @@ def test_claude_code_post_observation_links_to_review_and_redacts_output():
     assert "tool_response" not in observation.metadata
     assert decision.review.provenance is not None
     assert any(
-        record.action_id == observation.action_id
-        for record in decision.review.provenance.records
+        record.action_id == observation.action_id for record in decision.review.provenance.records
     )
 
 
 def test_claude_code_failure_observation_parses_exit_code_without_error_text():
-    observation = ClaudeCodeIntegration().observation_from_hook(
-        _post_payload("PostToolUseFailure")
-    )
+    observation = ClaudeCodeIntegration().observation_from_hook(_post_payload("PostToolUseFailure"))
 
     assert observation.exit_code == 17
     assert observation.metadata["status"] == "failure"
@@ -163,10 +160,7 @@ def test_claude_code_cli_persists_only_explicit_local_evidence(
 
     audit_event = json.loads(audit_path.read_text(encoding="utf-8"))
     assert audit_event["action_kind"] == "tool"
-    assert all(
-        record["action_id"] is None
-        for record in audit_event["provenance"]["records"]
-    )
+    assert all(record["action_id"] is None for record in audit_event["provenance"]["records"])
 
     monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps(_post_payload())))
     assert main(["post"]) == 0
