@@ -29,6 +29,7 @@ repos:
           ordin/action_policy.py
           ordin/api.py
           ordin/audit.py
+          ordin/claude_code.py
           ordin/execution.py
           ordin/provenance.py
           ordin/semantics.py

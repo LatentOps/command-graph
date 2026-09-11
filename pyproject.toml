@@ -46,6 +46,7 @@ dev = [
 
 [project.scripts]
 ordin = "ordin.entrypoint:main"
+ordin-claude-hook = "ordin.claude_code:main"
 
 [tool.setuptools]
 packages = ["ordin", "ordin.analyzers"]
