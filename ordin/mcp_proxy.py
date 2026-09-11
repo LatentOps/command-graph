@@ -9,7 +9,7 @@ import sys
 import threading
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, BinaryIO, Mapping, Sequence
+from typing import Any, IO, Mapping, Sequence
 
 from .action_policy import load_action_policy
 from .adapters import MCPAdapter
@@ -18,7 +18,7 @@ from .api import Ordin
 from .audit import JsonlAuditSink
 from .context import ExecutionContext
 from .execution import ActionObservation
-from .policy import ReviewPolicy
+from .policy import FailThreshold, ReviewPolicy
 from .tool_calls import load_tool_semantics
 
 
@@ -324,6 +324,9 @@ class MCPStdioSafetyProxy:
                 if result_type == "task":
                     exit_code = None
                     status = "task_accepted"
+                elif result_type == "input_required":
+                    exit_code = None
+                    status = "input_required"
                 elif result.get("isError") is True:
                     exit_code = 1
                     status = "tool_error"
@@ -365,7 +368,7 @@ def build_mcp_proxy(
     policy_path: str | Path | None = None,
     audit_path: str | Path | None = None,
     observations_path: str | Path | None = None,
-    fail_on: str = "warn",
+    fail_on: FailThreshold = "warn",
     shell_tools: frozenset[str] = frozenset(),
     cwd: str | None = None,
 ) -> MCPStdioSafetyProxy:
@@ -391,7 +394,7 @@ def build_mcp_proxy(
     )
 
 
-def _read_bounded_line(stream: BinaryIO) -> bytes | None:
+def _read_bounded_line(stream: IO[bytes]) -> bytes | None:
     line = stream.readline(MAX_MCP_MESSAGE_BYTES + 1)
     if not line:
         return None
@@ -425,7 +428,7 @@ def _encode_jsonrpc(payload: Mapping[str, Any]) -> bytes:
 def _relay_upstream_stdout(
     process: subprocess.Popen[bytes],
     proxy: MCPStdioSafetyProxy,
-    client_stdout: BinaryIO,
+    client_stdout: IO[bytes],
     output_lock: threading.Lock,
     failed: threading.Event,
 ) -> None:
@@ -562,7 +565,9 @@ def _parser() -> argparse.ArgumentParser:
         prog="ordin-mcp-proxy",
         description="Local stdio MCP safety proxy powered by Ordin.",
     )
-    parser.add_argument("--server-id", required=True, help="Stable identity for the upstream MCP server")
+    parser.add_argument(
+        "--server-id", required=True, help="Stable identity for the upstream MCP server"
+    )
     parser.add_argument("--semantics", help="Optional exact tool-semantics JSON file")
     parser.add_argument("--policy", help="Optional declarative Ordin action-policy JSON file")
     parser.add_argument(
@@ -586,7 +591,9 @@ def _parser() -> argparse.ArgumentParser:
         default=5.0,
         help="Seconds to allow the upstream subprocess to exit after client EOF",
     )
-    parser.add_argument("command", nargs=argparse.REMAINDER, help="Upstream MCP server command after --")
+    parser.add_argument(
+        "command", nargs=argparse.REMAINDER, help="Upstream MCP server command after --"
+    )
     return parser
 
 
