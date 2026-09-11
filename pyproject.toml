@@ -47,6 +47,7 @@ dev = [
 [project.scripts]
 ordin = "ordin.entrypoint:main"
 ordin-claude-hook = "ordin.claude_code:main"
+ordin-mcp-proxy = "ordin.mcp_proxy:main"
 
 [tool.setuptools]
 packages = ["ordin", "ordin.analyzers"]

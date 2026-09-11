@@ -2,7 +2,7 @@
 
 Ordin can normalize caller-owned agent tool calls into the same generic action review pipeline used by shell actions.
 
-The adapter layer is intentionally execution-free. It does not connect to MCP servers, proxy traffic, store credentials, execute tools, or persist action history.
+The low-level adapter layer is intentionally execution-free. It does not connect to MCP servers, store credentials, execute tools, or persist action history. For users who explicitly want a transport integration, Ordin also provides a separate local stdio MCP safety proxy described below.
 
 ## Generic tool calls
 
@@ -72,6 +72,24 @@ Adapter configuration is part of the integration trust boundary. Mark a tool as 
 
 Structured arguments are bounded by the same JSON depth, item-count, key-length, and string-length limits as `ActionEnvelope`. Oversized or malformed payloads fail validation before review.
 
+## Local MCP safety proxy
+
+For an MCP client that should gain Ordin review without embedding Python, use the separate stdio proxy:
+
+```bash
+ordin-mcp-proxy \
+  --server-id filesystem-local \
+  --semantics ./filesystem-semantics.json \
+  -- \
+  python -m my_mcp_server
+```
+
+The proxy forwards ordinary MCP JSON-RPC traffic transparently and intercepts `tools/call` before the upstream server receives it. Allowed calls are forwarded unchanged; uncertain calls are escalated as a typed JSON-RPC error; blocks never reach the upstream server.
+
+This transport integration is deliberately separate from `MCPAdapter`. The adapter remains a pure normalization primitive, while the proxy owns only the explicitly requested stdio subprocess/relay lifecycle.
+
+See [MCP safety proxy](mcp-safety-proxy.md) for exact identity semantics, policies, observations, protocol behavior, and limitations.
+
 ## Non-Python runtimes
 
 Adapters are convenience helpers, not a separate protocol. Any runtime can build an `ordin.action_envelope.v1` payload and use the existing JSON interface:
@@ -84,7 +102,7 @@ Unknown action semantics remain `ask`. Integrators can add deterministic semanti
 
 ## Runtime responsibilities
 
-The integrating runtime remains responsible for:
+For direct adapter use, the integrating runtime remains responsible for:
 
 - actual tool or command execution;
 - sandbox configuration;
@@ -92,5 +110,7 @@ The integrating runtime remains responsible for:
 - retries and cancellation;
 - MCP transport and authentication;
 - action-history persistence.
+
+When the optional stdio proxy is used, it owns only subprocess transport and forwarding. The upstream MCP server still owns tool effects and credentials, and the MCP host still owns approval UX, retries, cancellation intent, and orchestration.
 
 Ordin's responsibility is local normalization, semantic review, policy evaluation, and a deterministic decision before execution.
