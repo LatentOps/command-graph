@@ -113,9 +113,7 @@ def claude_code_tool_semantics() -> ToolSemanticsRegistry:
                 runtime=runtime,
                 tool="NotebookEdit",
                 effects=("filesystem.write",),
-                resources=(
-                    ToolResourceBinding(argument="notebook_path", type="path"),
-                ),
+                resources=(ToolResourceBinding(argument="notebook_path", type="path"),),
             ),
             ToolSemanticRule(
                 id="claude-web-fetch",
@@ -343,7 +341,9 @@ def _read_hook_payload() -> dict[str, Any]:
     try:
         payload = json.loads(text)
     except json.JSONDecodeError as exc:
-        raise ValueError(f"hook input is invalid JSON at line {exc.lineno} column {exc.colno}") from exc
+        raise ValueError(
+            f"hook input is invalid JSON at line {exc.lineno} column {exc.colno}"
+        ) from exc
     if not isinstance(payload, dict):
         raise ValueError("hook input must be a JSON object")
     return payload
@@ -351,8 +351,7 @@ def _read_hook_payload() -> dict[str, Any]:
 
 def _append_private_jsonl(path: str | Path, payload: Mapping[str, Any]) -> None:
     line = (
-        json.dumps(dict(payload), sort_keys=True, separators=(",", ":"), ensure_ascii=False)
-        + "\n"
+        json.dumps(dict(payload), sort_keys=True, separators=(",", ":"), ensure_ascii=False) + "\n"
     ).encode("utf-8")
     if len(line) > MAX_LOCAL_EVENT_BYTES:
         raise ValueError(f"local event exceeds maximum size {MAX_LOCAL_EVENT_BYTES} bytes")
