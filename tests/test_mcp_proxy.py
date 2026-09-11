@@ -102,14 +102,14 @@ def test_explicit_shell_block_never_reaches_upstream():
     assert decision.response["error"]["data"]["ordin"]["decision"] == "block"
 
 
-def test_malformed_and_duplicate_inflight_calls_fail_closed():
+def test_duplicate_inflight_and_malformed_calls_fail_closed():
     gate = AgentGate(Ordin(tool_semantics=_read_semantics()))
     proxy = MCPStdioSafetyProxy(server_id="fixture", gate=gate)
 
-    malformed = proxy.process_client_message(
+    first = proxy.process_client_message(
         {"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "read_file"}}
     )
-    assert malformed.forward is True
+    assert first.forward is True
 
     duplicate = proxy.process_client_message(_call(request_id=1))
     assert duplicate.forward is False
@@ -132,7 +132,9 @@ def test_tool_result_creates_linked_redacted_observation(tmp_path):
         gate=gate,
         observations_path=observations,
     )
-    decision = proxy.process_client_message(_call(request_id="req-1", arguments={"path": "/secret"}))
+    decision = proxy.process_client_message(
+        _call(request_id="req-1", arguments={"path": "/secret"})
+    )
     assert decision.forward is True
 
     observation = proxy.observe_server_message(
@@ -178,24 +180,38 @@ def test_tool_and_protocol_errors_are_observed_without_error_payload():
     assert "error" not in protocol_error.metadata
 
 
-def test_task_response_is_not_misreported_as_completed_success():
+def test_multi_round_results_are_not_misreported_as_completed_success():
     gate = AgentGate(Ordin(tool_semantics=_read_semantics()))
     proxy = MCPStdioSafetyProxy(server_id="fixture", gate=gate)
-    decision = proxy.process_client_message(_call(request_id=3))
-    assert decision.forward is True
 
-    observation = proxy.observe_server_message(
+    task_decision = proxy.process_client_message(_call(request_id=3))
+    assert task_decision.forward is True
+    task_observation = proxy.observe_server_message(
         {
             "jsonrpc": "2.0",
             "id": 3,
             "result": {"resultType": "task", "taskId": "opaque-task", "status": "working"},
         }
     )
+    assert task_observation is not None
+    assert task_observation.exit_code is None
+    assert task_observation.metadata["status"] == "task_accepted"
+    assert task_observation.metadata["result_type"] == "task"
 
-    assert observation is not None
-    assert observation.exit_code is None
-    assert observation.metadata["status"] == "task_accepted"
-    assert observation.metadata["result_type"] == "task"
+    input_decision = proxy.process_client_message(_call(request_id=4))
+    assert input_decision.forward is True
+    input_observation = proxy.observe_server_message(
+        {
+            "jsonrpc": "2.0",
+            "id": 4,
+            "result": {"resultType": "input_required", "prompt": "sensitive prompt"},
+        }
+    )
+    assert input_observation is not None
+    assert input_observation.exit_code is None
+    assert input_observation.metadata["status"] == "input_required"
+    assert input_observation.metadata["result_type"] == "input_required"
+    assert "prompt" not in input_observation.metadata
 
 
 def test_stdio_proxy_end_to_end_forwards_discovery_and_allowed_call(tmp_path):
@@ -221,7 +237,7 @@ def test_stdio_proxy_end_to_end_forwards_discovery_and_allowed_call(tmp_path):
         encoding="utf-8",
     )
     observations = tmp_path / "observations.jsonl"
-    server_code = r'''
+    server_code = r"""
 import json
 import sys
 for line in sys.stdin:
@@ -234,14 +250,17 @@ for line in sys.stdin:
     else:
         result = {}
     print(json.dumps({"jsonrpc": "2.0", "id": message.get("id"), "result": result}), flush=True)
-'''
-    messages = "\n".join(
-        json.dumps(item)
-        for item in [
-            {"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}},
-            _call(request_id=2, arguments={"path": "/tmp/example"}),
-        ]
-    ) + "\n"
+"""
+    messages = (
+        "\n".join(
+            json.dumps(item)
+            for item in [
+                {"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}},
+                _call(request_id=2, arguments={"path": "/tmp/example"}),
+            ]
+        )
+        + "\n"
+    )
 
     completed = subprocess.run(
         [
