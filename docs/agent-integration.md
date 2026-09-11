@@ -120,6 +120,12 @@ block -> deny
 
 The CLI only reviews the action; it does not execute commands received through `review --stdin`.
 
+## Claude Code reference integration
+
+Ordin includes a maintained, dependency-free Claude Code hook integration that translates `PreToolUse` into an Ordin decision and `PostToolUse` / `PostToolUseFailure` into optional redacted action observations. Bash calls reuse the existing shell review engine, stable built-in tools use exact runtime/tool semantics, and unknown tools fail closed to approval.
+
+See [Claude Code integration](claude-code-integration.md) for setup, supported tools, local audit/observation options, and the safety boundary.
+
 ## Design boundary
 
 Ordin is not an agent framework, shell executor, sandbox, or approval service. It provides deterministic local command intelligence and review. The integrating runtime owns:
