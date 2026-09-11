@@ -31,6 +31,7 @@ repos:
           ordin/audit.py
           ordin/claude_code.py
           ordin/execution.py
+          ordin/mcp_proxy.py
           ordin/provenance.py
           ordin/semantics.py
           ordin/temporal.py
