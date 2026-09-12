@@ -191,6 +191,54 @@ def test_exact_server_tool_semantics_allow_and_bind_resource():
     assert proxy.pending_count == 1
 
 
+@pytest.mark.parametrize(("request_id", "response_id"), [(1, 1.0), (1.0, 1), (0, -0.0), (-0.0, 0)])
+def test_equivalent_numeric_response_ids_settle_the_original_call(request_id, response_id):
+    proxy = MCPStdioSafetyProxy(
+        server_id="fixture", gate=AgentGate(Ordin(tool_semantics=_read_semantics()))
+    )
+    decision = proxy.process_client_message(_call(request_id=request_id))
+    assert decision.forward
+
+    observation = proxy.observe_server_message(
+        {"jsonrpc": "2.0", "id": response_id, "result": {"content": []}}
+    )
+
+    assert observation is not None
+    assert observation.action_id == decision.action_id
+    assert proxy.pending_count == 0
+
+
+@pytest.mark.parametrize(("first_id", "second_id"), [(1, 1.0), (1.0, 1), (0, -0.0)])
+def test_equivalent_numeric_request_ids_are_duplicate_inflight_calls(first_id, second_id):
+    proxy = MCPStdioSafetyProxy(
+        server_id="fixture", gate=AgentGate(Ordin(tool_semantics=_read_semantics()))
+    )
+    assert proxy.process_client_message(_call(request_id=first_id)).forward
+
+    duplicate = proxy.process_client_message(_call(request_id=second_id))
+
+    assert not duplicate.forward
+    assert duplicate.response["error"]["code"] == -32600
+    assert proxy.pending_count == 1
+
+
+@pytest.mark.parametrize(("first_id", "second_id"), [(1, "1"), (2**53, 2**53 + 1), (1, 1.5)])
+def test_distinct_request_ids_do_not_alias(first_id, second_id):
+    proxy = MCPStdioSafetyProxy(
+        server_id="fixture", gate=AgentGate(Ordin(tool_semantics=_read_semantics()))
+    )
+    first = proxy.process_client_message(_call(request_id=first_id))
+    second = proxy.process_client_message(_call(request_id=second_id))
+    assert first.forward and second.forward
+    assert proxy.pending_count == 2
+    for request_id, decision in [(second_id, second), (first_id, first)]:
+        observation = proxy.observe_server_message(
+            {"jsonrpc": "2.0", "id": request_id, "result": {"content": []}}
+        )
+        assert observation.action_id == decision.action_id
+    assert proxy.pending_count == 0
+
+
 def test_server_identity_mismatch_loses_trusted_semantics():
     gate = AgentGate(Ordin(tool_semantics=_read_semantics(server="trusted")))
     proxy = MCPStdioSafetyProxy(server_id="mutated", gate=gate)
