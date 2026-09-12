@@ -1,5 +1,9 @@
 # Ordin integration starter kit
 
+For a complete installed-wheel verification of Claude/Codex/MCP, sessions and
+capture, use the [v0.3 quickstart](../../docs/quickstart.md). The script exercises
+the same benign fixtures as these examples without model or credential access.
+
 These examples are small, runnable starting points for real integrations. They deliberately keep execution, credentials, sandboxing, approval UI, retries, and runtime state outside Ordin.
 
 ## 1. Five-minute Python quickstart

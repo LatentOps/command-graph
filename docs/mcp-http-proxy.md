@@ -1,5 +1,8 @@
 # MCP Streamable HTTP proxy
 
+The [offline quickstart](quickstart.md) includes an installed-wheel loopback
+check. No external MCP service or credentials are needed for that fixture.
+
 `ordin-mcp-http` adds a local HTTP boundary around the existing MCP review engine.
 It shares exact tool identities, `AgentGate`, policies, bounded session history,
 contract pins, and redacted observations with the stdio proxy. It reviews

@@ -1,5 +1,8 @@
 # Local trace capture and regression promotion
 
+The [offline quickstart](quickstart.md) verifies the synthetic demo through
+capture, replay and explicit promotion from an installed wheel.
+
 Capture is disabled by default. Enable it to retain action-level evidence from
 Claude Code, Codex, MCP stdio, or MCP HTTP, then turn a reviewed segment into an
 offline regression. Capture and promotion never upload data or run a tool.
@@ -114,8 +117,8 @@ command stages, commits, or pushes a fixture.
 | Target | Existing contract | Runner |
 | --- | --- | --- |
 | `trajectory` | `ordin.agent_trajectory.v1` | `scripts/run_trajectory_corpus.py` |
-| `failure` | `ordin.regression_case.v1` | `scripts/replay_regression.py` |
-| `extended` | `ordin.regression_replay.v1` | Existing regression promotion loader/runner |
+| `failure` | `ordin.regression_case.v1` | `scripts/run_regression_replay.py` |
+| `extended` | `ordin.regression_replay.v1` | `scripts/replay_regression.py` |
 | `conformance` | Regression case plus capture provenance | `scripts/run_integration_conformance.py --captured-fixtures PATH` |
 
 Promoted records retain capture/version/configuration digests and the original

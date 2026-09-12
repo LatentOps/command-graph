@@ -1,0 +1,10 @@
+{
+  "hook_event_name": "PreToolUse",
+  "session_id": "quickstart-session",
+  "turn_id": "quickstart-turn",
+  "tool_use_id": "quickstart-read",
+  "tool_name": "Bash",
+  "tool_input": {"command": "git status --short"},
+  "cwd": "/workspace",
+  "permission_mode": "default"
+}

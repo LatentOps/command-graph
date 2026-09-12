@@ -3,9 +3,10 @@
 Ordin is distributed directly from GitHub. Version `0.2.0`
 installs `ordin`, `ordin-claude-hook`, and `ordin-mcp-proxy`.
 
-The root README describes the stable `v0.2.0` release. It includes the current
-Python API, Claude Code hook, and MCP proxy. Use `main` only when you want
-unreleased development changes.
+The README separates the stable `v0.2.0` review path from upcoming v0.3 features.
+The v0.3 candidate adds `ordin-codex-hook` and `ordin-mcp-http`, live sessions,
+contract pinning and capture. Use a development install or candidate wheel for
+the [offline v0.3 quickstart](quickstart.md) until v0.3.0 is published.
 
 ## Install the current stable release
 
