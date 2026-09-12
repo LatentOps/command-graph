@@ -165,6 +165,9 @@ def _upstream(mode="json"):
                 self.empty(202)
                 return
             reply = {"jsonrpc": "2.0", "id": message["id"], "result": result}
+            if mode == "bad-sse" and method == "tools/call":
+                self.send_body({"jsonrpc": "2.0", "id": message["id"]}, sse=True)
+                return
             if (mode == "resume" and method == "tools/call") or (
                 mode == "init-resume" and method == "initialize"
             ):
@@ -566,3 +569,15 @@ def test_http_evaluation_separates_core_transport_and_upstream_delay():
     assert timings["http_round_trip_p50"] > 0
     assert timings["upstream_work_when_forwarded_p50"] >= 8
     assert timings["transport_and_session_overhead_p50"] >= 0
+
+
+def test_incomplete_sse_response_fails_without_forwarding_or_claiming_success():
+    with _upstream("bad-sse") as (url, state), _proxy(url) as server:
+        token = _initialize(server)
+        status, _, body = _request(server, _call(), token=token)
+        assert status == 200 and b'"jsonrpc"' not in body
+        assert _request(server, _call(2), token=token)[0] == 409
+        assert (
+            server._sessions[token].reviewer.session.snapshot()["observations"]["observations"]
+            == []
+        )

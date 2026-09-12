@@ -58,6 +58,17 @@ def test_unrecognized_upstream_result_tag_is_not_persisted_as_evidence():
     assert "synthetic-private-value" not in str(observation.as_dict())
 
 
+@pytest.mark.parametrize("result", [None, "not-a-result", {"isError": "false"}])
+def test_malformed_tool_result_cannot_be_recorded_as_success(result):
+    proxy = MCPStdioSafetyProxy(
+        server_id="fixture", gate=AgentGate(Ordin(tool_semantics=_read_semantics()))
+    )
+    assert proxy.process_client_message(_call(arguments={"path": "README.md"})).forward
+    with pytest.raises(ValueError, match="result"):
+        proxy.observe_server_message({"jsonrpc": "2.0", "id": 1, "result": result})
+    assert proxy.session.snapshot()["observations"]["observations"] == []
+
+
 @pytest.mark.parametrize(
     "line",
     [

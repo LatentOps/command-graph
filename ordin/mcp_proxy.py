@@ -401,6 +401,8 @@ class MCPStdioSafetyProxy:
         else:
             result = message.get("result")
             if isinstance(result, Mapping):
+                if "isError" in result and not isinstance(result["isError"], bool):
+                    raise ValueError("MCP tool result isError must be boolean")
                 candidate = result.get("resultType")
                 if candidate in ("task", "input_required"):
                     result_type = candidate
@@ -420,8 +422,7 @@ class MCPStdioSafetyProxy:
                     exit_code = 0
                     status = "success"
             else:
-                exit_code = 0
-                status = "success"
+                raise ValueError("MCP tool result must be an object")
 
         metadata: dict[str, Any] = {
             "runtime": self.runtime_id,

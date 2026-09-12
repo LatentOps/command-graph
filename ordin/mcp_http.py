@@ -320,6 +320,18 @@ class MCPHTTPServer(ThreadingHTTPServer):
             raise HTTPBoundaryError(409, "session_closed")
         if message.get("jsonrpc") != "2.0" or ("result" in message and "error" in message):
             raise HTTPBoundaryError(502, "invalid_upstream_protocol")
+        if "method" in message:
+            if (
+                not isinstance(message["method"], str)
+                or "result" in message
+                or "error" in message
+                or ("id" in message and _request_id_key(message["id"]) is None)
+            ):
+                raise HTTPBoundaryError(502, "ambiguous_upstream_message")
+        elif _request_id_key(message.get("id")) is None or not (
+            "result" in message or "error" in message
+        ):
+            raise HTTPBoundaryError(502, "incomplete_upstream_response")
         result = message.get("result")
         if isinstance(result, Mapping) and (
             "task" in result or result.get("resultType") in ("task", "input_required")
