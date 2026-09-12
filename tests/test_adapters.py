@@ -133,3 +133,29 @@ def test_adapter_names_are_bounded():
 
     with pytest.raises(ValueError, match="MCP server must be at most"):
         MCPAdapter(server="x" * 257)
+
+
+@pytest.mark.parametrize("padding", [" ", "\t", "\n", "\u00a0"])
+@pytest.mark.parametrize(
+    "adapter",
+    [
+        ToolCallAdapter(runtime="agent", shell_tools=frozenset({"shell"})),
+        MCPAdapter(server="server", shell_tools=frozenset({"shell"})),
+    ],
+)
+def test_tool_identity_whitespace_does_not_inherit_shell_mapping(adapter, padding):
+    tool = f"{padding}shell{padding}"
+
+    decision = AgentGate().evaluate_action(adapter.adapt(tool, {"command": "git status"}))
+
+    assert decision.disposition == "escalate"
+    assert decision.review.action.kind in {"tool", "mcp"}
+    assert decision.review.action.parameters["tool"] == tool
+
+
+def test_runtime_and_server_identity_whitespace_is_preserved():
+    tool = ToolCallAdapter(runtime=" agent ").adapt("read_file")
+    mcp = MCPAdapter(server=" server ").adapt("read_file")
+
+    assert tool.parameters["runtime"] == " agent "
+    assert mcp.parameters["server"] == " server "
