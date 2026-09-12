@@ -180,6 +180,49 @@ def test_unknown_privilege_does_not_match_root_or_non_root_selector():
         assert result.policy_matches == []
 
 
+@pytest.mark.parametrize(
+    "cwd,root",
+    [
+        (".", "."),
+        ("src", "/workspace"),
+        ("/workspace/src", "."),
+        ("", "/workspace"),
+        ("/workspace", ""),
+    ],
+)
+def test_relative_or_empty_repository_context_matches_only_unknown_scope(cwd, root):
+    context = ExecutionContext(cwd=cwd, repo_root=root)
+    for scope in ("inside", "outside", "unknown"):
+        policy = _policy(
+            ActionPolicyRule(
+                id="scope", decision="block", when=ActionPolicyCondition(repo_scope=scope)
+            )
+        )
+        result = policy.apply(_review(context=context))
+        assert result.decision == ("block" if scope == "unknown" else "allow")
+
+
+def test_relative_context_never_uses_the_reviewer_working_directory(tmp_path, monkeypatch):
+    policy = _policy(
+        ActionPolicyRule(
+            id="unknown", decision="block", when=ActionPolicyCondition(repo_scope="unknown")
+        )
+    )
+    for directory in (tmp_path, tmp_path / "nested"):
+        directory.mkdir(exist_ok=True)
+        monkeypatch.chdir(directory)
+        result = policy.apply(_review(context=ExecutionContext(cwd="src", repo_root=".")))
+        assert result.decision == "block"
+
+
+@pytest.mark.parametrize("prefix", [".", "relative/repo", "~/repo"])
+def test_cwd_prefix_configuration_requires_absolute_posix_paths(prefix):
+    with pytest.raises(ValueError, match="absolute"):
+        ActionPolicyCondition(cwd_prefixes=(prefix,))
+    with pytest.raises(ValueError, match="absolute"):
+        ActionPolicyCondition.from_dict({"cwd_prefixes": [prefix]})
+
+
 def test_intent_present_matches_even_when_alignment_is_available():
     policy = _policy(
         ActionPolicyRule(

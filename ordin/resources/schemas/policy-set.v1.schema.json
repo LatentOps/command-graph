@@ -41,7 +41,7 @@
               "risks": {"type": "array", "maxItems": 128, "items": {"enum": ["unknown", "low", "medium", "high", "critical"]}},
               "decisions": {"type": "array", "maxItems": 128, "items": {"enum": ["allow", "warn", "ask", "block"]}},
               "agents": {"type": "array", "maxItems": 128, "items": {"type": "string", "minLength": 1, "maxLength": 32768}},
-              "cwd_prefixes": {"type": "array", "maxItems": 128, "items": {"type": "string", "minLength": 1, "maxLength": 32768}},
+              "cwd_prefixes": {"type": "array", "maxItems": 128, "items": {"type": "string", "minLength": 1, "maxLength": 32768, "pattern": "^/"}},
               "repo_scope": {"enum": ["inside", "outside", "unknown"]},
               "privileged": {"type": "boolean"},
               "intent": {"enum": ["present", "absent", "aligned", "mismatch", "not_applicable"]},
