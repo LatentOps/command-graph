@@ -10,7 +10,7 @@ import threading
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterator, Mapping
+from typing import Any, Iterable, Iterator, Mapping
 
 from . import __version__
 from ._private_storage import MAX_DATABASE_BYTES, private_database
@@ -140,6 +140,14 @@ class IntegrationSession:
             raise ValueError("integration session identity mismatch")
         if self._closed:
             raise ValueError("integration session has ended")
+
+    def _would_evict(self, action_ids: Iterable[str]) -> bool:
+        """Check retention without copying private action/observation snapshots."""
+        with self._lock:
+            if len(self._actions) < MAX_ACTION_HISTORY:
+                return False
+            oldest = self._actions[0].action_id
+            return oldest is not None and oldest in action_ids
 
     def evaluate(
         self, action: ActionEnvelope, *, contract_check: MCPContractCheck | None = None

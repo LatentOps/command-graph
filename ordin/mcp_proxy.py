@@ -277,13 +277,15 @@ class MCPStdioSafetyProxy:
             )
 
         with self._lock:
-            if len(self._pending) >= 32:
+            if len(self._pending) >= 32 or self.session._would_evict(
+                pending.action_id for pending in self._pending.values()
+            ):
                 return MCPClientMessageDecision(
                     forward=False,
                     response=_jsonrpc_error(
                         request_id,
                         code=APPROVAL_REQUIRED_CODE,
-                        message="Ordin session has reached its in-flight action limit",
+                        message="Ordin session must retain pending action evidence; wait for tool results before retrying",
                     ),
                 )
             if request_key in self._pending or request_key in self._other_pending:
