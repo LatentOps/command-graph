@@ -24,19 +24,20 @@ def test_runtime_integration_evaluation_exercises_process_boundaries():
     payload = report.as_dict()
 
     assert report.errors == []
-    assert payload["scope"]["cases"] == 6
+    assert payload["scope"]["cases"] == 11
     assert payload["scope"]["integrations"] == {
         "claude-code-hook-process": 3,
+        "codex-hook-process": 5,
         "mcp-proxy-process": 3,
     }
     assert payload["failure_count"] == 0
-    assert payload["protocol_distribution"]["allow"] == 1
+    assert payload["protocol_distribution"]["allow"] == 3
     assert payload["protocol_distribution"]["ask"] == 1
-    assert payload["protocol_distribution"]["deny"] == 1
+    assert payload["protocol_distribution"]["deny"] == 4
     assert payload["protocol_distribution"]["upstream_result"] == 1
     assert payload["protocol_distribution"]["approval_required"] == 1
     assert payload["protocol_distribution"]["blocked"] == 1
-    assert payload["evidence_linkage"]["observation_cases"] == 2
+    assert payload["evidence_linkage"]["observation_cases"] == 4
     assert payload["evidence_linkage"]["observation_rate"] == 1.0
     assert payload["friction_categories"] == []
     assert payload["latency_ms"]["subprocess_end_to_end"]["p50"] > 0

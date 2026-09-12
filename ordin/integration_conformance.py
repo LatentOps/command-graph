@@ -7,6 +7,7 @@ from .action import ActionEnvelope, ActionReview
 from .agent import AgentDecision, AgentGate
 from .api import Ordin
 from .claude_code import ClaudeCodeIntegration
+from .codex import CodexIntegration
 from .mcp_proxy import APPROVAL_REQUIRED_CODE, BLOCKED_CODE, MCPStdioSafetyProxy
 from .mcp_contracts import MCPContractLock, semantics_binding_digest, tool_contract_digest
 from .tool_calls import ToolResourceBinding, ToolSemanticRule, ToolSemanticsRegistry
@@ -439,7 +440,7 @@ def _mcp_checks() -> list[ConformanceCheck]:
 
 def run_integration_conformance() -> IntegrationConformanceReport:
     return IntegrationConformanceReport(
-        checks=tuple([*_claude_checks(), *_mcp_checks(), *_contract_checks()]),
+        checks=tuple([*_claude_checks(), *_mcp_checks(), *_contract_checks(), *_codex_checks()]),
     )
 
 
@@ -492,4 +493,38 @@ def _contract_checks() -> list[ConformanceCheck]:
         )
         if result.forward:
             proxy.observe_server_message({"jsonrpc": "2.0", "id": 200 + index, "result": {}})
+    return checks
+
+
+def _codex_checks() -> list[ConformanceCheck]:
+    integration = CodexIntegration()
+    checks: list[ConformanceCheck] = []
+    for name, tool, arguments, expected in (
+        ("benign_read", "Bash", {"command": "git status --short"}, "allow"),
+        ("destructive_block", "Bash", {"command": "rm -rf /"}, "deny"),
+        ("unknown_tool_denied", "future_tool", {}, "deny"),
+        (
+            "patch_review",
+            "apply_patch",
+            {"command": "*** Begin Patch\n*** Add File: out.txt\n+fixture\n*** End Patch"},
+            "deny",
+        ),
+    ):
+        payload = {
+            "hook_event_name": "PreToolUse",
+            "session_id": "conformance",
+            "turn_id": "turn",
+            "tool_use_id": name,
+            "tool_name": tool,
+            "tool_input": arguments,
+            "cwd": "/workspace",
+            "permission_mode": "default",
+        }
+        output = integration.pre_tool_output(payload)
+        passed = output["hookSpecificOutput"]["permissionDecision"] == expected
+        checks.append(
+            ConformanceCheck(
+                "codex", name, passed, "pass" if passed else "Codex decision mapping failed"
+            )
+        )
     return checks

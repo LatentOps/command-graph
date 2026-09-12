@@ -54,6 +54,27 @@ def test_package_install_exposes_ordin_cli_graph_data_and_public_api(tmp_path):
     assert "policy" in help_result.stdout.lower()
     assert "temporal" in help_result.stdout.lower()
 
+    codex_doctor = subprocess.run(
+        [str(_venv_script(venv_path, "ordin-codex-hook")), "doctor"],
+        check=True,
+        cwd=venv_path,
+        text=True,
+        capture_output=True,
+    )
+    assert json.loads(codex_doctor.stdout)["runtime"] == "codex"
+    plugin_files = subprocess.run(
+        [
+            str(python),
+            "-c",
+            "from importlib.resources import files; p=files('ordin').joinpath('plugin_assets/ordin'); assert p.joinpath('hooks/hooks.json').is_file(); assert p.joinpath('scripts/hook.py').is_file(); assert p.joinpath('.codex-plugin/plugin.json').is_file()",
+        ],
+        check=True,
+        cwd=venv_path,
+        text=True,
+        capture_output=True,
+    )
+    assert plugin_files.returncode == 0
+
     doctor = subprocess.run(
         [str(script), "doctor", "--json"],
         check=True,

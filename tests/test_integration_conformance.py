@@ -14,7 +14,7 @@ def test_first_party_integrations_pass_shared_conformance():
 
     assert report.failed == 0
     assert report.passed == len(report.checks)
-    assert report.integrations == ("claude-code", "mcp-proxy")
+    assert report.integrations == ("claude-code", "codex", "mcp-proxy")
     json.dumps(report.as_dict())
 
 

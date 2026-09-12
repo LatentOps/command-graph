@@ -11,6 +11,7 @@ from .action import ActionEnvelope, ActionHistory
 from .agent import AgentDecision, AgentGate
 from .api import Ordin
 from .claude_code import ClaudeCodeIntegration, claude_code_tool_semantics
+from .codex import CodexIntegration
 from .execution import ObservationHistory
 from .mcp_contracts import MCPContractCheck
 from .mcp_proxy import MCPStdioSafetyProxy
@@ -80,10 +81,11 @@ def run_live_session_evaluation() -> LiveSessionEvaluation:
     results: list[dict[str, Any]] = []
     core_samples: list[int] = []
     overhead_samples: list[int] = []
-    for runtime in ("claude-code", "mcp-proxy"):
+    for runtime in ("claude-code", "mcp-proxy", "codex"):
         gate = _TimedGate(Ordin(tool_semantics=claude_code_tool_semantics()))
         state = IntegrationSession(SessionIdentity(runtime, "evaluation"), gate)
         claude = ClaudeCodeIntegration(gate=gate, session=state)
+        codex = CodexIntegration(gate=gate, session=state)
         proxy = MCPStdioSafetyProxy(
             server_id="evaluation",
             gate=gate,
@@ -93,7 +95,7 @@ def run_live_session_evaluation() -> LiveSessionEvaluation:
         sequence = 0
 
         def reset() -> None:
-            if runtime == "claude-code":
+            if runtime in {"claude-code", "codex"}:
                 state.reset()
             else:
                 proxy.reset_session()
@@ -111,7 +113,10 @@ def run_live_session_evaluation() -> LiveSessionEvaluation:
                 "permission_mode": "default",
             }
             start = perf_counter_ns()
-            if runtime == "claude-code":
+            if runtime == "codex":
+                payload["turn_id"] = "evaluation-turn"
+                decision = codex.review_pre_tool(payload)
+            elif runtime == "claude-code":
                 decision = claude.review_pre_tool(payload)
             else:
                 mapped = proxy.process_client_message(
@@ -129,7 +134,16 @@ def run_live_session_evaluation() -> LiveSessionEvaluation:
             core_samples.append(gate.samples[-1])
             overhead_samples.append(max(0, elapsed - gate.samples[-1]))
             if decision.may_execute:
-                if runtime == "claude-code":
+                if runtime == "codex":
+                    codex.observation_from_hook(
+                        {
+                            **payload,
+                            "hook_event_name": "PostToolUse",
+                            "tool_response": {"exit_code": 0},
+                        },
+                        observed_effects=observed,
+                    )
+                elif runtime == "claude-code":
                     claude.observation_from_hook(
                         {**payload, "hook_event_name": "PostToolUse"}, observed_effects=observed
                     )

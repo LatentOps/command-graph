@@ -150,6 +150,7 @@ class RuntimeIntegrationEvaluationReport:
                 "ordin_version": __version__,
                 "repetitions": self.repetitions,
                 "claude_code_boundary": "ordin-claude-hook compatible module subprocess",
+                "codex_boundary": "ordin-codex-hook compatible module subprocess; no model inference",
                 "mcp_boundary": "ordin-mcp-proxy compatible module subprocess with local stdio upstream",
                 "network_used": False,
                 "model_inference_used": False,
@@ -475,6 +476,29 @@ def run_runtime_integration_evaluation(
         raise ValueError("runtime evaluation fixtures are missing: " + ", ".join(missing))
 
     cases = (
+        *(
+            _codex_case(
+                name,
+                tool,
+                arguments,
+                expected,
+                repetitions=repetitions,
+                timeout_seconds=timeout_seconds,
+                repo_root=root,
+            )
+            for name, tool, arguments, expected in (
+                ("codex-read", "Bash", {"command": "git status --short"}, "allow"),
+                ("codex-root-delete", "Bash", {"command": "rm -rf /"}, "deny"),
+                (
+                    "codex-patch",
+                    "apply_patch",
+                    {"command": "*** Begin Patch\n*** Add File: out.txt\n+fixture\n*** End Patch"},
+                    "deny",
+                ),
+                ("codex-unknown", "future_tool", {}, "deny"),
+                ("codex-mcp-read", "mcp__starter-kit__read_note", {"path": "README.md"}, "allow"),
+            )
+        ),
         _claude_case(
             "claude-read",
             "Read",
@@ -551,6 +575,81 @@ def run_runtime_integration_evaluation(
         repetitions=repetitions,
         cases=cases,
         setup_findings=setup_findings,
+    )
+
+
+def _codex_case(
+    case_id: str,
+    tool: str,
+    arguments: Mapping[str, Any],
+    expected: str,
+    *,
+    repetitions: int,
+    timeout_seconds: float,
+    repo_root: Path,
+) -> RuntimeCaseResult:
+    payload = {
+        "hook_event_name": "PreToolUse",
+        "session_id": "runtime",
+        "turn_id": "turn",
+        "tool_use_id": case_id,
+        "tool_name": tool,
+        "tool_input": arguments,
+        "cwd": "/workspace",
+        "permission_mode": "default",
+    }
+    samples = []
+    env = {key: value for key, value in os.environ.items() if not key.startswith("ORDIN_CODEX_")}
+    if case_id == "codex-mcp-read":
+        env["ORDIN_CODEX_MCP_MAP"] = str(repo_root / "examples/codex-mcp-map.json")
+        env["ORDIN_CODEX_SEMANTICS"] = str(repo_root / "examples/integrations/mcp-semantics.json")
+    actual = "not_run"
+    exit_code = 1
+    for _ in range(repetitions):
+        completed, elapsed = _run_process(
+            [sys.executable, "-m", "ordin.codex", "pre"],
+            payload=payload,
+            env=env,
+            timeout_seconds=timeout_seconds,
+        )
+        samples.append(elapsed)
+        actual = _claude_protocol(completed.stdout)
+        exit_code = completed.returncode
+        if exit_code != 0 or actual != expected:
+            break
+    linked = True
+    if case_id in {"codex-read", "codex-mcp-read"} and actual == "allow":
+        from .codex import CodexIntegration
+
+        with tempfile.TemporaryDirectory(prefix="ordin-codex-observation-") as directory:
+            path = Path(directory) / "observations.jsonl"
+            post, _ = _run_process(
+                [sys.executable, "-m", "ordin.codex", "post"],
+                payload={
+                    **payload,
+                    "hook_event_name": "PostToolUse",
+                    "tool_response": {"exit_code": 0, "output": "private fixture output"},
+                },
+                env={**env, "ORDIN_CODEX_OBSERVATIONS": str(path)},
+                timeout_seconds=timeout_seconds,
+            )
+            linked = False
+            if post.returncode == 0 and path.exists():
+                observation = json.loads(path.read_text())
+                linked = (
+                    observation["action_id"] == CodexIntegration().adapt(payload).action_id
+                    and observation["exit_code"] == 0
+                    and "private fixture output" not in path.read_text()
+                )
+    return RuntimeCaseResult(
+        case_id,
+        "codex-hook-process",
+        expected,
+        actual,
+        tuple(samples),
+        exit_code,
+        observation_expected=case_id in {"codex-read", "codex-mcp-read"},
+        observation_linked=linked,
     )
 
 

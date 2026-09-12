@@ -1,0 +1,6 @@
+{
+  "schema_version": "ordin.codex_mcp_map.v1",
+  "tools": [
+    {"hook_name": "mcp__starter-kit__read_note", "server": "starter-kit", "tool": "read_note"}
+  ]
+}
