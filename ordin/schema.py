@@ -27,6 +27,7 @@ KNOWN_TEMPLATE_FIELDS = {
     "branch",
 }
 SCHEMA_FILES = {
+    "action_trace": "action-trace.v1.schema.json",
     "trace_event": "trace-event.v1.schema.json",
     "trace_candidate": "trace-candidate.v1.schema.json",
     "codex_mcp_map": "codex-mcp-map.v1.schema.json",
@@ -123,8 +124,26 @@ def validate_instance(
         minimum = schema.get("minimum")
         if isinstance(minimum, (int, float)) and instance < minimum:
             errors.append(f"{path}: value is below minimum {minimum}")
+        maximum = schema.get("maximum")
+        if isinstance(maximum, (int, float)) and instance > maximum:
+            errors.append(f"{path}: value is above maximum {maximum}")
 
     if isinstance(instance, list):
+        if schema.get("uniqueItems") is True:
+            # JSON booleans are distinct from numbers, unlike Python equality.
+            def key(value: Any) -> Any:
+                if isinstance(value, dict):
+                    return ("object", tuple(sorted((k, key(v)) for k, v in value.items())))
+                if isinstance(value, list):
+                    return ("array", tuple(key(v) for v in value))
+                if isinstance(value, bool):
+                    return ("boolean", value)
+                if isinstance(value, (int, float)):
+                    return ("number", value)
+                return (type(value).__name__, value)
+
+            if len({key(value) for value in instance}) != len(instance):
+                errors.append(f"{path}: array items must be unique")
         min_items = schema.get("minItems")
         if isinstance(min_items, int) and len(instance) < min_items:
             errors.append(f"{path}: array has fewer than {min_items} items")
@@ -187,6 +206,36 @@ def validate_named_schema(name: str, instance: Any) -> list[str]:
 
 def validate_schema_files() -> list[str]:
     errors: list[str] = []
+    shipped = {path.name for path in SCHEMA_DIR.glob("*.schema.json")}
+    if shipped != set(SCHEMA_FILES.values()):
+        errors.append("schema registry and shipped schema files differ")
+    supported = {
+        "$schema",
+        "$id",
+        "$comment",
+        "title",
+        "description",
+        "default",
+        "examples",
+        "type",
+        "const",
+        "enum",
+        "required",
+        "properties",
+        "additionalProperties",
+        "items",
+        "minLength",
+        "maxLength",
+        "pattern",
+        "minimum",
+        "maximum",
+        "minItems",
+        "maxItems",
+        "uniqueItems",
+        "maxProperties",
+        "anyOf",
+        "oneOf",
+    }
     for name, filename in SCHEMA_FILES.items():
         try:
             schema = load_schema(name)
@@ -199,6 +248,21 @@ def validate_schema_files() -> list[str]:
             errors.append(f"schema {filename}: missing $id")
         if schema.get("type") != "object":
             errors.append(f"schema {filename}: top-level type must be object")
+        pending = [schema]
+        while pending:
+            node = pending.pop()
+            if set(node) - supported:
+                errors.append(
+                    f"schema {filename}: unsupported validation keywords {sorted(set(node) - supported)}"
+                )
+            properties = node.get("properties", {})
+            if isinstance(properties, dict):
+                pending.extend(value for value in properties.values() if isinstance(value, dict))
+            for name in ("items", "additionalProperties"):
+                if isinstance(node.get(name), dict):
+                    pending.append(node[name])
+            for name in ("anyOf", "oneOf"):
+                pending.extend(value for value in node.get(name, []) if isinstance(value, dict))
     return errors
 
 

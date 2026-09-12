@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import math
+from ._json_contracts import reject_unknown
+
 import re
 from dataclasses import dataclass, field
 from typing import Any, Literal, Mapping, Protocol, Sequence, TypeAlias
@@ -37,6 +40,8 @@ class ResourceLike(Protocol):
 
 
 def _validate_json(value: Any, *, path: str = "metadata", depth: int = 0) -> None:
+    if isinstance(value, float) and not math.isfinite(value):
+        raise ValueError(f"{path} requires finite JSON numbers")
     if depth > MAX_METADATA_DEPTH:
         raise ValueError(f"{path} exceeds maximum nesting depth {MAX_METADATA_DEPTH}")
     if value is None or isinstance(value, (bool, int, float, str)):
@@ -133,6 +138,19 @@ class ExecutionCapabilityProfile:
 
     @classmethod
     def from_dict(cls, payload: Mapping[str, Any]) -> "ExecutionCapabilityProfile":
+        reject_unknown(
+            payload,
+            {
+                "schema_version",
+                "filesystem",
+                "filesystem_scopes",
+                "network",
+                "network_scopes",
+                "privilege_escalation",
+                "process_execution",
+            },
+            "execution capabilities",
+        )
         if not isinstance(payload, Mapping):
             raise ValueError("execution capability profile must be a JSON object")
         if payload.get("schema_version") != EXECUTION_CAPABILITIES_SCHEMA_VERSION:
@@ -234,6 +252,11 @@ class ActionObservation:
 
     @classmethod
     def from_dict(cls, payload: Mapping[str, Any]) -> "ActionObservation":
+        reject_unknown(
+            payload,
+            {"schema_version", "action_id", "exit_code", "effects", "resources", "metadata"},
+            "action observation",
+        )
         if not isinstance(payload, Mapping):
             raise ValueError("action observation must be a JSON object")
         if payload.get("schema_version") != ACTION_OBSERVATION_SCHEMA_VERSION:
@@ -257,6 +280,7 @@ class ActionObservation:
         for item in resources_raw:
             if not isinstance(item, Mapping):
                 raise ValueError("observation resources must be objects")
+            reject_unknown(item, {"type", "value"}, "observation resource")
             resource_type = item.get("type")
             value = item.get("value")
             if not isinstance(resource_type, str) or not isinstance(value, str):
@@ -290,6 +314,7 @@ class ObservationHistory:
 
     @classmethod
     def from_dict(cls, payload: Mapping[str, Any]) -> "ObservationHistory":
+        reject_unknown(payload, {"schema_version", "observations"}, "observation history")
         if not isinstance(payload, Mapping):
             raise ValueError("observation history must be a JSON object")
         if payload.get("schema_version") != OBSERVATION_HISTORY_SCHEMA_VERSION:

@@ -1,6 +1,6 @@
 # JSON Schema Contracts
 
-Ordin publishes machine-readable JSON Schema contracts for its stable JSON surfaces. The checked-in schemas use JSON Schema Draft 2020-12 and are available under `schemas/`; installed packages carry the same files under `ordin/resources/schemas/`.
+Ordin publishes machine-readable contracts for versioned JSON surfaces. The [v0.3 compatibility inventory](public-compatibility-0.3.md) distinguishes supported and experimental formats. Schemas use Draft 2020-12 under `schemas/`; installed packages carry the same files under `ordin/resources/schemas/`.
 
 ## Published contracts
 
@@ -20,6 +20,10 @@ Ordin publishes machine-readable JSON Schema contracts for its stable JSON surfa
 - `policy-set.v1.schema.json`
 - `temporal-policy-set.v1.schema.json`
 - `tool-semantics.v1.schema.json`
+- `integration-session.v1.schema.json`
+- `mcp-contract-lock.v1.schema.json`
+- `mcp-inventory.v1.schema.json`
+- `codex-mcp-map.v1.schema.json`
 - `action-trace.v1.schema.json`
 - `trace-event.v1.schema.json` — bounded private capture records
 - `trace-candidate.v1.schema.json` — reviewed semantic reconstructions using existing regression contracts

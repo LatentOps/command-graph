@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import math
 from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, Any, Mapping, Sequence
 
@@ -10,6 +11,7 @@ from . import (
     ACTION_REVIEW_SCHEMA_VERSION,
 )
 from .context import ExecutionContext
+from ._json_contracts import reject_unknown
 from .execution import (
     ActionObservation,
     ExecutionCapabilityProfile,
@@ -63,6 +65,8 @@ def _validate_json_value(value: JsonValue, *, path: str = "parameters", depth: i
     if depth > MAX_PARAMETER_DEPTH:
         raise ValueError(f"{path} exceeds maximum nesting depth {MAX_PARAMETER_DEPTH}")
     if value is None or isinstance(value, (str, bool, int, float)):
+        if isinstance(value, float) and not math.isfinite(value):
+            raise ValueError(f"{path} requires finite JSON numbers")
         if isinstance(value, str) and len(value) > MAX_PARAMETER_STRING_LENGTH:
             raise ValueError(
                 f"{path} string must be at most {MAX_PARAMETER_STRING_LENGTH} characters"
@@ -154,6 +158,8 @@ class ActionEnvelope:
             raise ValueError("action intent must be a string or null")
         if not isinstance(self.parameters, Mapping):
             raise ValueError("action parameters must be a JSON object")
+        if self.context is not None and not isinstance(self.context, ExecutionContext):
+            raise ValueError("action context must be ExecutionContext or null")
         _validate_json_value(self.parameters)
         object.__setattr__(self, "parameters", _copy_json_mapping(self.parameters))
 
@@ -192,8 +198,13 @@ class ActionEnvelope:
     def from_dict(cls, payload: Mapping[str, Any]) -> "ActionEnvelope":
         if not isinstance(payload, Mapping):
             raise ValueError("action envelope must be a JSON object")
+        reject_unknown(
+            payload,
+            {"schema_version", "action_id", "kind", "operation", "parameters", "intent", "context"},
+            "action envelope",
+        )
         schema_version = payload.get("schema_version")
-        if schema_version not in {None, ACTION_ENVELOPE_SCHEMA_VERSION}:
+        if schema_version is not None and schema_version != ACTION_ENVELOPE_SCHEMA_VERSION:
             raise ValueError(f"unsupported action envelope schema: {schema_version!r}")
         kind = payload.get("kind")
         operation = payload.get("operation")
@@ -242,6 +253,7 @@ class ActionHistory:
     def from_dict(cls, payload: Mapping[str, Any]) -> "ActionHistory":
         if not isinstance(payload, Mapping):
             raise ValueError("action history must be a JSON object")
+        reject_unknown(payload, {"schema_version", "actions"}, "action history")
         schema_version = payload.get("schema_version")
         if schema_version != ACTION_HISTORY_SCHEMA_VERSION:
             raise ValueError(f"unsupported action history schema: {schema_version!r}")

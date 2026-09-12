@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from ._json_contracts import load_configuration
+
 import hashlib
 import json
 import posixpath
@@ -92,6 +94,35 @@ class ActionPolicyCondition:
     trajectory_any: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
+        for name in (
+            "kinds",
+            "operations",
+            "effects_any",
+            "effects_all",
+            "risks",
+            "decisions",
+            "agents",
+            "cwd_prefixes",
+            "trajectory_any",
+        ):
+            values = getattr(self, name)
+            if not isinstance(values, (tuple, list)):
+                raise ValueError(f"policy condition {name} must be a sequence")
+            _string_list({name: list(values)}, name)
+        if len(self.resources_any) > MAX_MATCH_VALUES or any(
+            not isinstance(resource, PolicyResourceMatcher) for resource in self.resources_any
+        ):
+            raise ValueError("policy condition resources must be bounded resource matchers")
+        for decision in self.decisions:
+            validate_decision(decision)
+        if any(risk not in {"unknown", "low", "medium", "high", "critical"} for risk in self.risks):
+            raise ValueError("invalid policy condition risk")
+        if self.repo_scope not in (None, "inside", "outside", "unknown"):
+            raise ValueError("invalid policy repository scope")
+        if self.privileged is not None and not isinstance(self.privileged, bool):
+            raise ValueError("policy privilege selector must be boolean or null")
+        if self.intent not in (None, "present", "absent", "aligned", "mismatch", "not_applicable"):
+            raise ValueError("invalid policy intent selector")
         for prefix in self.cwd_prefixes:
             _validate_text(prefix, "policy cwd prefix", MAX_MATCH_VALUE_LENGTH)
             if not posixpath.isabs(prefix):
@@ -204,6 +235,8 @@ class ActionPolicyRule:
     enabled: bool = True
 
     def __post_init__(self) -> None:
+        if not isinstance(self.enabled, bool) or not isinstance(self.when, ActionPolicyCondition):
+            raise ValueError("policy rule requires a boolean enabled flag and typed condition")
         _validate_identifier(self.id, "policy rule id", MAX_RULE_ID_LENGTH)
         validate_decision(self.decision)
         if self.reason is not None:
@@ -503,21 +536,7 @@ def compile_action_policy(policy: ActionPolicySet) -> CompiledActionPolicySet:
 
 
 def load_action_policy(path: str | Path) -> CompiledActionPolicySet:
-    policy_path = Path(path)
-    try:
-        size = policy_path.stat().st_size
-    except OSError as exc:
-        raise ValueError(f"cannot read policy file {policy_path}: {exc}") from exc
-    if size > MAX_POLICY_FILE_BYTES:
-        raise ValueError(f"policy file exceeds maximum size {MAX_POLICY_FILE_BYTES} bytes")
-    try:
-        payload = json.loads(policy_path.read_text(encoding="utf-8"))
-    except OSError as exc:
-        raise ValueError(f"cannot read policy file {policy_path}: {exc}") from exc
-    except json.JSONDecodeError as exc:
-        raise ValueError(f"invalid policy JSON: {exc.msg}") from exc
-    if not isinstance(payload, Mapping):
-        raise ValueError("policy file must contain a JSON object")
+    payload = load_configuration(path, label="policy file", maximum=MAX_POLICY_FILE_BYTES)
     from .schema import validate_named_schema
 
     errors = validate_named_schema("policy_set", dict(payload))

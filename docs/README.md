@@ -35,6 +35,7 @@ orun 'git status --short'
 - [Declarative action policies](policies.md)
 - [Temporal action policies](temporal-policies.md)
 - [Schema contracts](schema-contracts.md)
+- [v0.3 public compatibility surface](public-compatibility-0.3.md)
 - [Context-aware review](context-aware-review.md)
 - [Trace-aware review](trace-aware-review.md)
 

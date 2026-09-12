@@ -410,6 +410,11 @@ def _append_private_jsonl(path: str | Path, payload: Mapping[str, Any]) -> None:
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
+    if args in (["--help"], ["-h"]):
+        print(
+            "usage: ordin-claude-hook {pre|post|post-failure|session-start|session-reset|session-end}"
+        )
+        return 0
     if len(args) != 1 or args[0] not in {
         "pre",
         "post",

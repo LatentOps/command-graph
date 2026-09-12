@@ -1,0 +1,258 @@
+{
+  "schema_version": "ordin.public_surface.v1",
+  "package_line": "0.3",
+  "exports": [
+    "ACTION_ENVELOPE_SCHEMA_VERSION",
+    "ACTION_HISTORY_SCHEMA_VERSION",
+    "ACTION_OBSERVATION_SCHEMA_VERSION",
+    "ACTION_REVIEW_SCHEMA_VERSION",
+    "ACTION_TRACE_SCHEMA_VERSION",
+    "AUDIT_EVENT_SCHEMA_VERSION",
+    "ActionEnvelope",
+    "ActionHistory",
+    "ActionObservation",
+    "ActionPolicyCondition",
+    "ActionPolicyRule",
+    "ActionPolicySet",
+    "ActionResource",
+    "ActionReview",
+    "ActionTrace",
+    "AgentDecision",
+    "AgentDisposition",
+    "AgentGate",
+    "AgentReview",
+    "AuditEvent",
+    "AuditSink",
+    "AuditVerification",
+    "CommandReview",
+    "CompiledActionPolicySet",
+    "CompiledTemporalPolicySet",
+    "CompiledToolSemanticsRegistry",
+    "DIAGNOSTIC_SCHEMA_VERSION",
+    "Decision",
+    "DecisionProvenance",
+    "EFFECT_CATALOG_SCHEMA_VERSION",
+    "EFFECT_GRAPH_SCHEMA_VERSION",
+    "EXECUTION_CAPABILITIES_SCHEMA_VERSION",
+    "ExecutionCapabilityProfile",
+    "ExecutionContext",
+    "FailThreshold",
+    "INTEGRATION_HEALTH_SCHEMA_VERSION",
+    "IntegrationSession",
+    "JsonlAuditSink",
+    "MAN_INDEX_SCHEMA_VERSION",
+    "MCPAdapter",
+    "MCPContractCheck",
+    "MCPContractLock",
+    "OBSERVATION_HISTORY_SCHEMA_VERSION",
+    "ObservationHistory",
+    "ObservedResource",
+    "Ordin",
+    "PACK_LIST_SCHEMA_VERSION",
+    "PACK_MANIFEST_SCHEMA_VERSION",
+    "POLICY_SET_SCHEMA_VERSION",
+    "PROVENANCE_SCHEMA_VERSION",
+    "PolicyEvaluation",
+    "PolicyMatch",
+    "PolicyResourceMatcher",
+    "ProvenanceRecord",
+    "ProvenanceResource",
+    "REVIEW_REQUEST_SCHEMA_VERSION",
+    "REVIEW_SCHEMA_VERSION",
+    "RISK_RULES_SCHEMA_VERSION",
+    "RISK_SCHEMA_VERSION",
+    "ReviewPolicy",
+    "ReviewRequest",
+    "RiskReview",
+    "SEARCH_SCHEMA_VERSION",
+    "SESSION_SCHEMA_VERSION",
+    "SearchResult",
+    "SessionIdentity",
+    "SqliteSessionStore",
+    "TEMPORAL_POLICY_SET_SCHEMA_VERSION",
+    "TOOL_SEMANTICS_SCHEMA_VERSION",
+    "TemporalActionEvidence",
+    "TemporalPolicySet",
+    "TemporalPredicate",
+    "TemporalRule",
+    "ToolCallAdapter",
+    "ToolResourceBinding",
+    "ToolSemanticRule",
+    "ToolSemanticsRegistry",
+    "TraceAction",
+    "__version__",
+    "action_review_diagnostic",
+    "default_temporal_policy",
+    "derive_capabilities",
+    "integration_health",
+    "load_action_policy",
+    "load_temporal_policy",
+    "load_tool_semantics",
+    "review_action",
+    "tool_contract_digest",
+    "verify_audit_jsonl"
+  ],
+  "console_scripts": {
+    "ordin": "ordin.entrypoint:main",
+    "ordin-claude-hook": "ordin.claude_code:main",
+    "ordin-codex-hook": "ordin.codex:main",
+    "ordin-mcp-proxy": "ordin.mcp_proxy:main",
+    "ordin-mcp-http": "ordin.mcp_http:main"
+  },
+  "schemas": {
+    "action_envelope": {
+      "file": "action-envelope.v1.schema.json",
+      "status": "stable-v1"
+    },
+    "action_history": {
+      "file": "action-history.v1.schema.json",
+      "status": "stable-v1"
+    },
+    "action_observation": {
+      "file": "action-observation.v1.schema.json",
+      "status": "stable-v1"
+    },
+    "action_review": {
+      "file": "action-review.v1.schema.json",
+      "status": "stable-v1"
+    },
+    "action_trace": {
+      "file": "action-trace.v1.schema.json",
+      "status": "stable-v1"
+    },
+    "audit_event": {
+      "file": "audit-event.v1.schema.json",
+      "status": "stable-v1"
+    },
+    "codex_mcp_map": {
+      "file": "codex-mcp-map.v1.schema.json",
+      "status": "stable-v1"
+    },
+    "command_card": {
+      "file": "command-card.v1.schema.json",
+      "status": "stable-v1"
+    },
+    "command_pack": {
+      "file": "command-pack.v1.schema.json",
+      "status": "stable-v1"
+    },
+    "effect_catalog": {
+      "file": "effect-catalog.v1.schema.json",
+      "status": "stable-v1"
+    },
+    "effect_graph": {
+      "file": "effect-graph.v1.schema.json",
+      "status": "stable-v1"
+    },
+    "execution_capabilities": {
+      "file": "execution-capabilities.v1.schema.json",
+      "status": "stable-v1"
+    },
+    "integration_session": {
+      "file": "integration-session.v1.schema.json",
+      "status": "stable-v1"
+    },
+    "mcp_contract_lock": {
+      "file": "mcp-contract-lock.v1.schema.json",
+      "status": "stable-v1"
+    },
+    "mcp_inventory": {
+      "file": "mcp-inventory.v1.schema.json",
+      "status": "stable-v1"
+    },
+    "observation_history": {
+      "file": "observation-history.v1.schema.json",
+      "status": "stable-v1"
+    },
+    "pack_list": {
+      "file": "pack-list.v1.schema.json",
+      "status": "stable-v1"
+    },
+    "policy_set": {
+      "file": "policy-set.v1.schema.json",
+      "status": "stable-v1"
+    },
+    "provenance": {
+      "file": "provenance.v1.schema.json",
+      "status": "stable-v1"
+    },
+    "review_request": {
+      "file": "review-request.v1.schema.json",
+      "status": "stable-v1"
+    },
+    "review_result": {
+      "file": "review-result.v1.schema.json",
+      "status": "stable-v1"
+    },
+    "risk_review": {
+      "file": "risk-review.v1.schema.json",
+      "status": "stable-v1"
+    },
+    "risk_rules": {
+      "file": "risk-rules.v1.schema.json",
+      "status": "stable-v1"
+    },
+    "search_result": {
+      "file": "search-result.v1.schema.json",
+      "status": "stable-v1"
+    },
+    "temporal_policy_set": {
+      "file": "temporal-policy-set.v1.schema.json",
+      "status": "stable-v1"
+    },
+    "tool_semantics": {
+      "file": "tool-semantics.v1.schema.json",
+      "status": "stable-v1"
+    },
+    "trace_candidate": {
+      "file": "trace-candidate.v1.schema.json",
+      "status": "experimental"
+    },
+    "trace_event": {
+      "file": "trace-event.v1.schema.json",
+      "status": "experimental"
+    }
+  },
+  "module_contracts": {
+    "ordin.claude_code": [
+      "ClaudeCodeIntegration",
+      "build_claude_code_integration"
+    ],
+    "ordin.codex": [
+      "CodexIntegration",
+      "build_codex_integration",
+      "load_codex_mcp_map"
+    ],
+    "ordin.mcp_proxy": [
+      "MCPStdioSafetyProxy",
+      "build_mcp_proxy"
+    ],
+    "ordin.mcp_http": [
+      "MCPHTTPConfig",
+      "MCPHTTPServer",
+      "build_http_server"
+    ],
+    "ordin.trace_capture": [
+      "TraceRecorder",
+      "attach_trace",
+      "read_capture"
+    ],
+    "ordin.trace_replay": [
+      "sanitize_capture",
+      "replay_candidate",
+      "promote_candidate"
+    ]
+  },
+  "experimental": [
+    "trace capture database layout and promotion metadata",
+    "diagnostic/evaluation report layouts",
+    "optional semantic reranking",
+    "man-page index internals"
+  ],
+  "internal": [
+    "underscore-prefixed names",
+    "compiled engine internals",
+    "transport handler classes",
+    "test/evaluation helper constructors"
+  ]
+}
