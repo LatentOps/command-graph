@@ -1,0 +1,477 @@
+{
+  "schema_version": "ordin.dependency_review.v1",
+  "reviewed_on": "2026-09-12",
+  "core_required_dependencies": [],
+  "updates": [
+    {
+      "head": "aa6d6a49f8b3b8cf6c9981181627f12ad5953149",
+      "merge_commit_sha": "04ce3b4943a1774e5da0088e9a4c763ebd09aeee",
+      "merged": true,
+      "number": 127,
+      "state": "closed",
+      "checks": [
+        {
+          "conclusion": "success",
+          "name": "CodeQL",
+          "status": "completed"
+        },
+        {
+          "conclusion": "skipped",
+          "name": "Attest tested release artifacts",
+          "status": "completed"
+        },
+        {
+          "conclusion": "skipped",
+          "name": "Publish GitHub Release",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Linux Debian 12",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Python 3.12",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Python 3.11",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Linux Fedora 42",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Python 3.10",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Safety benchmark",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Python 3.13",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "macOS 15 Python 3.13",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Build and install package",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Quality",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Build release artifacts",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "CodeQL Python",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Dependency review",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Workflow security",
+          "status": "completed"
+        }
+      ]
+    },
+    {
+      "head": "ab974f429547638d75a43282971660fe20fec8b2",
+      "merge_commit_sha": "691d6a8e5730d28bc9bae5539b417c5ae512af1d",
+      "merged": true,
+      "number": 128,
+      "state": "closed",
+      "checks": [
+        {
+          "conclusion": "success",
+          "name": "CodeQL",
+          "status": "completed"
+        },
+        {
+          "conclusion": "skipped",
+          "name": "Publish GitHub Release",
+          "status": "completed"
+        },
+        {
+          "conclusion": "skipped",
+          "name": "Attest tested release artifacts",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Dependency review",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "CodeQL Python",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Linux Debian 12",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Linux Fedora 42",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Python 3.11",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Python 3.13",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Python 3.12",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Workflow security",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Safety benchmark",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Python 3.10",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "macOS 15 Python 3.13",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Quality",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Build release artifacts",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Build and install package",
+          "status": "completed"
+        }
+      ]
+    },
+    {
+      "head": "0dad78a9d95048121428e2effe9aef1c4fbc2d85",
+      "merge_commit_sha": "2a11b91f701015a05682476c4eac5ac1f7103a4a",
+      "merged": true,
+      "number": 129,
+      "state": "closed",
+      "checks": [
+        {
+          "conclusion": "success",
+          "name": "CodeQL",
+          "status": "completed"
+        },
+        {
+          "conclusion": "skipped",
+          "name": "Attest tested release artifacts",
+          "status": "completed"
+        },
+        {
+          "conclusion": "skipped",
+          "name": "Publish GitHub Release",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Python 3.13",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Python 3.10",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Linux Debian 12",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Python 3.12",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Python 3.11",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Safety benchmark",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Linux Fedora 42",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Build and install package",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "macOS 15 Python 3.13",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Quality",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Build release artifacts",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Dependency review",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Workflow security",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "CodeQL Python",
+          "status": "completed"
+        }
+      ]
+    },
+    {
+      "head": "464dbaa1229e34f12c921f0170d4b479fd55b686",
+      "merge_commit_sha": "bb792874a4e2520c90e1fbcea28bde1de7934c8d",
+      "merged": true,
+      "number": 130,
+      "state": "closed",
+      "checks": [
+        {
+          "conclusion": "success",
+          "name": "CodeQL",
+          "status": "completed"
+        },
+        {
+          "conclusion": "skipped",
+          "name": "Publish GitHub Release",
+          "status": "completed"
+        },
+        {
+          "conclusion": "skipped",
+          "name": "Attest tested release artifacts",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Python 3.10",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Safety benchmark",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Linux Debian 12",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Python 3.13",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "macOS 15 Python 3.13",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Python 3.11",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Python 3.12",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Linux Fedora 42",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "CodeQL Python",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Build and install package",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Quality",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Dependency review",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Build release artifacts",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Workflow security",
+          "status": "completed"
+        }
+      ]
+    },
+    {
+      "head": "8df255b8f6e4a1e8e7703e9704fa239cd45974f3",
+      "merge_commit_sha": "a7740340fcf92560ab69dab128567b4a4edb548f",
+      "merged": true,
+      "number": 131,
+      "state": "closed",
+      "checks": [
+        {
+          "conclusion": "success",
+          "name": "CodeQL",
+          "status": "completed"
+        },
+        {
+          "conclusion": "skipped",
+          "name": "Attest tested release artifacts",
+          "status": "completed"
+        },
+        {
+          "conclusion": "skipped",
+          "name": "Publish GitHub Release",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Build release artifacts",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Python 3.12",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Python 3.11",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Python 3.13",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Python 3.10",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "macOS 15 Python 3.13",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Build and install package",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Quality",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Linux Fedora 42",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Safety benchmark",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Linux Debian 12",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Dependency review",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Workflow security",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "CodeQL Python",
+          "status": "completed"
+        }
+      ]
+    }
+  ]
+}
