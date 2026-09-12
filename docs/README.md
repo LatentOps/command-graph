@@ -5,6 +5,7 @@ Start with what you are trying to do. The implementation details are linked afte
 ## I want to install Ordin or use it from a terminal
 
 - [Installation](installation.md)
+- [Platform and integration compatibility](compatibility.md)
 - [Bare intent CLI](bare-intent-cli.md)
 - [Generic action review](action-review.md)
 - [Declarative action policies](policies.md)

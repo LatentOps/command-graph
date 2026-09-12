@@ -1,5 +1,6 @@
 {
   "schema_version": "ordin.command_card.v1",
+  "platforms": {"os": ["linux"]},
   "command": "systemctl",
   "summary": "Inspect and control systemd services and system state.",
   "aliases": ["systemd", "service manager", "linux service"],

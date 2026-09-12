@@ -1,5 +1,6 @@
 {
   "schema_version": "ordin.command_card.v1",
+  "platforms": {"os": ["linux"]},
   "command": "fuser",
   "summary": "Identify processes using files, sockets, or filesystems.",
   "aliases": ["process using file", "port process"],

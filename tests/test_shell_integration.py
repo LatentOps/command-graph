@@ -2,6 +2,7 @@ import os
 import shutil
 import stat
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -49,24 +50,36 @@ def _fake_ordin(path: Path, *, decision: str, exit_code: int) -> None:
     path.chmod(path.stat().st_mode | stat.S_IXUSR)
 
 
-def test_bash_wrapper_executes_allowed_exact_text(tmp_path):
-    bash = shutil.which("bash")
-    if bash is None:
-        pytest.skip("bash is unavailable")
+@pytest.fixture(params=["bash", "zsh"])
+def shell(request):
+    if os.name != "posix":
+        pytest.skip("shell execution fixtures require POSIX paths and executable modes")
+    name = request.param
+    executable = f"/bin/{name}" if sys.platform == "darwin" else shutil.which(name)
+    if executable is None or not Path(executable).is_file():
+        pytest.skip(f"{name} is unavailable")
+    return name, executable
+
+
+def test_wrapper_executes_allowed_exact_text(tmp_path, shell):
+    name, executable = shell
 
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
     _fake_ordin(bin_dir / "ordin", decision="allow", exit_code=0)
-    init_file = tmp_path / "ordin.bash"
-    init_file.write_text(render_shell_init("bash"), encoding="utf-8")
+    init_file = tmp_path / "ordin init.sh"
+    init_file.write_text(render_shell_init(name), encoding="utf-8")
 
     env = os.environ.copy()
     env["PATH"] = f"{bin_dir}{os.pathsep}{env.get('PATH', '')}"
     result = subprocess.run(
         [
-            bash,
+            executable,
             "-c",
-            f"source {init_file}; orun $'printf one\\nprintf two'",
+            'source "$1"; orun "$2"',
+            "ordin-test",
+            str(init_file),
+            "printf one\nprintf two",
         ],
         text=True,
         capture_output=True,
@@ -77,40 +90,80 @@ def test_bash_wrapper_executes_allowed_exact_text(tmp_path):
     assert result.stdout == "onetwo"
 
 
-def test_bash_wrapper_does_not_execute_blocked_text(tmp_path):
-    bash = shutil.which("bash")
-    if bash is None:
-        pytest.skip("bash is unavailable")
+@pytest.mark.parametrize("exit_code", [10, 20, 30, 127])
+def test_wrapper_does_not_execute_rejected_text(tmp_path, shell, exit_code):
+    name, executable = shell
 
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
-    _fake_ordin(bin_dir / "ordin", decision="block", exit_code=30)
-    init_file = tmp_path / "ordin.bash"
-    init_file.write_text(render_shell_init("bash"), encoding="utf-8")
+    _fake_ordin(bin_dir / "ordin", decision="block", exit_code=exit_code)
+    init_file = tmp_path / "ordin init.sh"
+    init_file.write_text(render_shell_init(name), encoding="utf-8")
     blocked_path = tmp_path / "must-not-exist"
 
     env = os.environ.copy()
     env["PATH"] = f"{bin_dir}{os.pathsep}{env.get('PATH', '')}"
     result = subprocess.run(
         [
-            bash,
+            executable,
             "-c",
-            f"source {init_file}; orun 'touch {blocked_path}'",
+            'source "$1"; orun \'touch "$ORDIN_TEST_SENTINEL"\'',
+            "ordin-test",
+            str(init_file),
         ],
         text=True,
         capture_output=True,
-        env=env,
+        env={**env, "ORDIN_TEST_SENTINEL": str(blocked_path)},
         check=False,
     )
-    assert result.returncode == 30
+    assert result.returncode == exit_code
     assert not blocked_path.exists()
     assert "decision: block" in result.stderr
 
 
-def test_bash_generated_script_has_valid_syntax(tmp_path):
-    bash = shutil.which("bash")
-    if bash is None:
-        pytest.skip("bash is unavailable")
-    init_file = tmp_path / "ordin.bash"
-    init_file.write_text(render_shell_init("bash"), encoding="utf-8")
-    subprocess.run([bash, "-n", str(init_file)], check=True)
+def test_generated_script_has_valid_syntax(tmp_path, shell):
+    name, executable = shell
+    init_file = tmp_path / "ordin init.sh"
+    init_file.write_text(render_shell_init(name), encoding="utf-8")
+    subprocess.run([executable, "-n", str(init_file)], check=True)
+
+
+def test_wrapper_rejects_bad_threshold_and_can_be_disabled(tmp_path, shell):
+    name, executable = shell
+    init_file = tmp_path / "ordin init.sh"
+    init_file.write_text(render_shell_init(name))
+    result = subprocess.run(
+        [
+            executable,
+            "-c",
+            'source "$1"; ORDIN_SHELL_FAIL_ON=invalid orun "printf forbidden"; test "$?" = 2 || exit 1; ordin_shell_disable; typeset -f orun && exit 1; exit 0',
+            "ordin-test",
+            str(init_file),
+        ],
+        text=True,
+        capture_output=True,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "forbidden" not in result.stdout
+
+
+@pytest.mark.parametrize("exit_code, accepted", [(0, True), (30, False)])
+def test_zsh_widget_obeys_review_result(tmp_path, shell, exit_code, accepted):
+    name, executable = shell
+    if name != "zsh":
+        pytest.skip("ZLE belongs to Zsh")
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    _fake_ordin(bin_dir / "ordin", decision="allow" if accepted else "block", exit_code=exit_code)
+    init_file = tmp_path / "ordin init.zsh"
+    init_file.write_text(render_shell_init(name))
+    # Exercise the widget in a real Zsh process with a non-executing ZLE boundary.
+    script = 'source "$1"; zle() { if [[ "$1" == .accept-line ]]; then print -r -- accepted; fi; }; BUFFER="printf example"; __ordin_zle_review_accept'
+    result = subprocess.run(
+        [executable, "-c", script, "ordin-test", str(init_file)],
+        env={**os.environ, "PATH": f"{bin_dir}{os.pathsep}{os.environ.get('PATH', '')}"},
+        text=True,
+        capture_output=True,
+    )
+    assert result.returncode == 0, result.stderr
+    assert ("accepted" in result.stdout) == accepted

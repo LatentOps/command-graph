@@ -1,5 +1,6 @@
 {
   "schema_version": "ordin.command_card.v1",
+  "platforms": {"os": ["linux"]},
   "command": "journalctl",
   "summary": "Read and maintain the systemd journal.",
   "aliases": ["systemd journal", "service logs", "journal logs"],
