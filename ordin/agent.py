@@ -8,6 +8,7 @@ from .adapters import MCPAdapter, ToolCallAdapter
 from .api import Ordin
 from .context import ExecutionContext
 from .execution import ObservationHistory
+from .mcp_contracts import MCPContractCheck
 from .review import CommandReview
 from .trace import ActionTrace
 
@@ -75,6 +76,7 @@ class AgentGate:
         *,
         history: ActionHistory | Mapping[str, Any] | None = None,
         observations: ObservationHistory | Mapping[str, Any] | None = None,
+        contract_check: MCPContractCheck | None = None,
     ) -> AgentDecision:
         """Review a generic action through the same Ordin policy boundary."""
 
@@ -82,6 +84,7 @@ class AgentGate:
             action,
             history=history,
             observations=observations,
+            contract_check=contract_check,
         )
         return AgentDecision(
             disposition=self._disposition(review),

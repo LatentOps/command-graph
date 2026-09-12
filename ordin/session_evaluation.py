@@ -12,6 +12,7 @@ from .agent import AgentDecision, AgentGate
 from .api import Ordin
 from .claude_code import ClaudeCodeIntegration, claude_code_tool_semantics
 from .execution import ObservationHistory
+from .mcp_contracts import MCPContractCheck
 from .mcp_proxy import MCPStdioSafetyProxy
 from .session import IntegrationSession, SessionIdentity
 
@@ -27,9 +28,12 @@ class _TimedGate(AgentGate):
         *,
         history: ActionHistory | Mapping[str, Any] | None = None,
         observations: ObservationHistory | Mapping[str, Any] | None = None,
+        contract_check: MCPContractCheck | None = None,
     ) -> AgentDecision:
         start = perf_counter_ns()
-        decision = super().evaluate_action(action, history=history, observations=observations)
+        decision = super().evaluate_action(
+            action, history=history, observations=observations, contract_check=contract_check
+        )
         self.samples.append(perf_counter_ns() - start)
         self.decisions.append(decision)
         return decision

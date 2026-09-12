@@ -1,5 +1,8 @@
 # MCP safety proxy
 
+Use [`--contract-lock`](mcp-contract-pinning.md) to require a reviewed live tool
+contract before an exact tool identity can inherit trusted semantics.
+
 Each proxy connection carries bounded in-memory action and observation history.
 See [live integration sessions](integration-sessions.md) for temporal review, reset,
 correlation limits, and state ownership.

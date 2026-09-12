@@ -1,0 +1,13 @@
+{
+  "tools": [
+    {
+      "name": "read_note",
+      "description": "Return a deterministic local fixture note.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {"path": {"type": "string"}},
+        "required": ["path"]
+      }
+    }
+  ]
+}

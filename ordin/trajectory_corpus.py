@@ -9,6 +9,7 @@ from typing import Any, Mapping
 from .action import ActionEnvelope, ActionHistory
 from .api import Ordin
 from .execution import ActionObservation, ObservationHistory
+from .mcp_contracts import MCPContractCheck
 from .policy import Decision, validate_decision
 from .temporal import default_temporal_policy
 from .tool_calls import ToolSemanticsRegistry
@@ -58,6 +59,7 @@ class TrajectoryStep:
     expected_categories: tuple[str, ...] = ()
     expected_effects: tuple[str, ...] = ()
     observation: ActionObservation | None = None
+    contract_check: MCPContractCheck | None = None
 
     @classmethod
     def from_dict(cls, payload: Mapping[str, Any]) -> "TrajectoryStep":
@@ -74,6 +76,9 @@ class TrajectoryStep:
             raise ValueError("trajectory step observation must be an object or null")
         return cls(
             action=ActionEnvelope.from_dict(action_raw),
+            contract_check=MCPContractCheck.from_dict(payload["contract_check"])
+            if payload.get("contract_check") is not None
+            else None,
             expected=validate_decision(expected_raw),
             expected_categories=_string_list(
                 payload.get("expected_categories", []),
@@ -382,6 +387,7 @@ def run_agent_trajectory_corpus(trajectories: list[AgentTrajectory]) -> Trajecto
                 step.action,
                 history=history,
                 observations=observation_history,
+                contract_check=step.contract_check,
             )
             step_results.append(
                 TrajectoryStepResult(

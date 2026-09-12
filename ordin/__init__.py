@@ -76,9 +76,13 @@ from .tool_calls import (
     load_tool_semantics,
 )
 from .trace import ActionTrace, TraceAction
+from .mcp_contracts import MCPContractCheck, MCPContractLock, tool_contract_digest
 from .session import SESSION_SCHEMA_VERSION, IntegrationSession, SessionIdentity, SqliteSessionStore
 
 __all__ = [
+    "MCPContractCheck",
+    "MCPContractLock",
+    "tool_contract_digest",
     "SESSION_SCHEMA_VERSION",
     "IntegrationSession",
     "SessionIdentity",

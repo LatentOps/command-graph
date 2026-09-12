@@ -8,6 +8,7 @@ from .agent import AgentDecision, AgentGate
 from .api import Ordin
 from .claude_code import ClaudeCodeIntegration
 from .mcp_proxy import APPROVAL_REQUIRED_CODE, BLOCKED_CODE, MCPStdioSafetyProxy
+from .mcp_contracts import MCPContractLock, semantics_binding_digest, tool_contract_digest
 from .tool_calls import ToolResourceBinding, ToolSemanticRule, ToolSemanticsRegistry
 
 
@@ -438,5 +439,57 @@ def _mcp_checks() -> list[ConformanceCheck]:
 
 def run_integration_conformance() -> IntegrationConformanceReport:
     return IntegrationConformanceReport(
-        checks=tuple([*_claude_checks(), *_mcp_checks()]),
+        checks=tuple([*_claude_checks(), *_mcp_checks(), *_contract_checks()]),
     )
+
+
+def _contract_checks() -> list[ConformanceCheck]:
+    semantics = _mcp_semantics("fixture-server")
+    tool = {
+        "name": "read_file",
+        "inputSchema": {"type": "object", "properties": {"path": {"type": "string"}}},
+    }
+    lock = MCPContractLock(
+        semantics_binding_digest(semantics),
+        {("fixture-server", "read_file"): tool_contract_digest(tool)},
+    )
+    proxy = MCPStdioSafetyProxy(
+        server_id="fixture-server",
+        gate=AgentGate(Ordin(tool_semantics=semantics)),
+        contract_lock=lock,
+    )
+    checks: list[ConformanceCheck] = []
+    for index, candidate in enumerate(
+        (
+            tool,
+            {
+                **tool,
+                "inputSchema": {"type": "object", "properties": {"path": {"type": "integer"}}},
+            },
+        )
+    ):
+        proxy.process_client_message({"jsonrpc": "2.0", "id": 100 + index, "method": "tools/list"})
+        proxy.observe_server_message(
+            {"jsonrpc": "2.0", "id": 100 + index, "result": {"tools": [candidate]}}
+        )
+        result = proxy.process_client_message(
+            _mcp_call(200 + index, arguments={"path": "/workspace/README.md"})
+        )
+        passed = (
+            result.forward
+            if index == 0
+            else not result.forward
+            and result.response is not None
+            and result.response["error"]["code"] == APPROVAL_REQUIRED_CODE
+        )
+        checks.append(
+            ConformanceCheck(
+                "mcp-proxy",
+                "contract_matched" if index == 0 else "contract_drift_fails_closed",
+                passed,
+                "pass" if passed else "contract verification did not govern execution",
+            )
+        )
+        if result.forward:
+            proxy.observe_server_message({"jsonrpc": "2.0", "id": 200 + index, "result": {}})
+    return checks

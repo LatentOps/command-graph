@@ -1,0 +1,13 @@
+{
+  "schema_version": "ordin.mcp_contract_lock.v1",
+  "canonicalization": "ordin.mcp_contract.v1",
+  "semantics_digest": "cff8dde07c74932860a6e3ded991bd03d7cb5f31cec35e53acb05fe5f6f126ed",
+  "protocol_revision": "2025-11-25",
+  "pins": [
+    {
+      "server": "starter-kit",
+      "tool": "read_note",
+      "digest": "6e3ac5d5d71afe415779c44eea1372d2dfd770530662e90adf452171ba8b978f"
+    }
+  ]
+}
