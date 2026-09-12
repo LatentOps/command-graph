@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ordin"
-version = "0.2.0.dev0"
+version = "0.2.0"
 description = "Local command intelligence and pre-execution safety for humans and AI agents."
 readme = "README.md"
 requires-python = ">=3.10"

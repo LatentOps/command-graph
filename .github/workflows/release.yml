@@ -29,6 +29,7 @@ jobs:
         run: |
           python - <<'PY'
           import os
+          import re
           import tomllib
           from pathlib import Path
 
@@ -42,6 +43,8 @@ jobs:
               )
 
           if os.environ["RELEASE_EVENT"] == "push":
+              if re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", project_version) is None:
+                  raise SystemExit("published tags require a final X.Y.Z package version")
               expected_tag = f"v{project_version}"
               if os.environ["RELEASE_REF"] != expected_tag:
                   raise SystemExit(
@@ -61,7 +64,11 @@ jobs:
           /tmp/ordin-release/bin/python -m pip install dist/*.whl
           /tmp/ordin-release/bin/ordin doctor
           /tmp/ordin-release/bin/ordin make file runnable --limit 1 --json
-          /tmp/ordin-release/bin/python -c "from ordin import Ordin; assert Ordin().review('git status --short').allowed"
+          /tmp/ordin-release/bin/python -I -c "from importlib.metadata import version; from ordin import Ordin, __version__; assert __version__ == version('ordin'); assert Ordin().review('git status --short').allowed"
+          /tmp/ordin-release/bin/python -I -c "from ordin.integration_conformance import run_integration_conformance; report = run_integration_conformance(); assert report.failed == 0, report.errors()"
+          printf '%s\n' '{"session_id":"release-smoke","cwd":"/tmp","permission_mode":"default","hook_event_name":"PreToolUse","tool_name":"Read","tool_input":{"file_path":"/tmp/example"},"tool_use_id":"release-read"}' | /tmp/ordin-release/bin/ordin-claude-hook pre > /tmp/ordin-release-hook.json
+          /tmp/ordin-release/bin/python -I -c "import json; from pathlib import Path; result = json.loads(Path('/tmp/ordin-release-hook.json').read_text()); assert result['hookSpecificOutput']['permissionDecision'] == 'allow'"
+          /tmp/ordin-release/bin/ordin-mcp-proxy --help > /tmp/ordin-release-proxy-help.txt
       - name: Upload validated artifacts
         uses: actions/upload-artifact@v4
         with:

@@ -16,13 +16,13 @@ service.
 Use Python 3.10 or newer and Git. Ordin targets Linux; CI tests Python 3.10–3.13
 and checks installed CLI behavior on Debian and Fedora.
 
-This README describes the development version on `main` (`0.2.0.dev0`). Install
-it in a virtual environment to use the APIs and integrations shown here:
+Install the stable `v0.2.0` release in a virtual environment. The examples in this
+guide use its APIs and integrations:
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-python -m pip install "git+https://github.com/LatentOps/ordin.git@main"
+python -m pip install "git+https://github.com/LatentOps/ordin.git@v0.2.0"
 ordin doctor
 ```
 
@@ -42,19 +42,22 @@ risk: low
 Ordin's local command data and schemas.
 
 <details>
-<summary>Install the older tagged release instead</summary>
+<summary>Install the development branch instead</summary>
 
-The latest tagged release is [v0.1.0](https://github.com/LatentOps/ordin/releases/tag/v0.1.0):
+To try unreleased changes, install `main`:
 
 ```bash
-python -m pip install "git+https://github.com/LatentOps/ordin.git@v0.1.0"
+python -m pip install "git+https://github.com/LatentOps/ordin.git"
 ```
 
-That release predates the Claude Code hook and MCP proxy. Use `main` for this
-guide, or follow the documentation at the release tag. The release also provides
-a wheel and source archive.
+Development builds can change between installs. Use the version tag for a
+repeatable release installation.
 
 </details>
+
+The [v0.2.0 release](https://github.com/LatentOps/ordin/releases/tag/v0.2.0) also
+provides a wheel and source archive. Read the [release notes](docs/releases/v0.2.0.md)
+for changes since v0.1.0.
 
 See [installation](docs/installation.md) for other install options and optional
 semantic search dependencies.
