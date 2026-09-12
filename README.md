@@ -16,16 +16,16 @@ service.
 Use Python 3.10–3.13 and Git. The v0.3 line is tested on Linux and macOS;
 command knowledge remains Linux-first where platform metadata says so.
 
-The current stable release is `v0.2.0`. This branch prepares v0.3.0: Codex,
-MCP HTTP, live sessions, contract pinning and capture below require the
-development build until that release is published. Basic review works on both.
+The current stable release is `v0.3.0`, including Codex, MCP HTTP, live sessions,
+contract pinning and private capture. Use its tag or verified wheel for a
+repeatable installation; `main` is the development branch.
 
 Install the stable release in a virtual environment:
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-python -m pip install "git+https://github.com/LatentOps/ordin.git@v0.2.0"
+python -m pip install "git+https://github.com/LatentOps/ordin.git@v0.3.0"
 ordin doctor
 ```
 
@@ -58,17 +58,17 @@ repeatable release installation.
 
 </details>
 
-The [v0.2.0 release](https://github.com/LatentOps/ordin/releases/tag/v0.2.0) also
-provides a wheel and source archive. Read the [release notes](docs/releases/v0.2.0.md)
-for changes since v0.1.0.
+The [v0.3.0 release](https://github.com/LatentOps/ordin/releases/tag/v0.3.0) also
+provides a wheel, source archive and integrity metadata. Read the
+[release notes](docs/releases/v0.3.0.md) for changes since v0.2.0.
 
 See [installation](docs/installation.md) for other install options and optional
 semantic search dependencies.
 
-For the upcoming release, follow the [offline v0.3 quickstart](docs/quickstart.md).
+Start with the [offline v0.3 quickstart](docs/quickstart.md).
 Its wheel-based acceptance script verifies every maintained integration with
-local fixtures and no model or credential requirement. The [v0.3 release notes
-draft](docs/releases/v0.3.0.md) records compatibility changes and limitations.
+local fixtures and no model or credential requirement. The [v0.3 release notes](docs/releases/v0.3.0.md)
+record compatibility changes and limitations.
 
 ## Find a command
 

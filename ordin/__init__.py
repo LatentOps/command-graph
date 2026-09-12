@@ -1,6 +1,6 @@
 """Ordin public API for command intelligence and pre-execution safety."""
 
-__version__ = "0.3.0.dev0"
+__version__ = "0.3.0"
 
 SEARCH_SCHEMA_VERSION = "ordin.search_result.v1"
 RISK_SCHEMA_VERSION = "ordin.risk_review.v1"

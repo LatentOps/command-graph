@@ -119,7 +119,7 @@ releases, including `v0.2.0`, are not modified retroactively to add new metadata
 Users can install a stable release directly from its Git tag:
 
 ```bash
-python -m pip install "git+https://github.com/LatentOps/ordin.git@v0.2.0"
+python -m pip install "git+https://github.com/LatentOps/ordin.git@v0.3.0"
 ```
 
 They can also install the wheel attached to the GitHub Release.

@@ -189,4 +189,5 @@ jobs:
             --verify-tag \
             --target "$GITHUB_SHA" \
             --title "Ordin $GITHUB_REF_NAME" \
+            --notes-file "docs/releases/$GITHUB_REF_NAME.md" \
             --generate-notes

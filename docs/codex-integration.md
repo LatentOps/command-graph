@@ -4,8 +4,7 @@
 `AgentGate`, policies, temporal history, and observations used by other Ordin
 integrations. Codex owns execution, sandboxing, credentials, approvals, and retries.
 
-This feature requires Ordin 0.3; while that release is in preparation, install
-the development build. The 0.2.0 release does not contain it.
+This feature requires Ordin 0.3 or newer. The 0.2.0 release does not contain it.
 The adapter follows the [official Codex hook contract](https://developers.openai.com/codex/hooks/),
 checked on 2026-09-12. Evaluation uses local fixtures without model requests.
 

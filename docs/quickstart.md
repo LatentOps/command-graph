@@ -1,8 +1,8 @@
 # Offline v0.3 quickstart
 
-This guide describes the v0.3 release candidate. Until v0.3.0 is published, use
-the development install from the [installation guide](installation.md); v0.2.0
-does not contain Codex, MCP HTTP, or the new session/capture workflows.
+This guide targets the stable v0.3.0 tag or published wheel from the
+[installation guide](installation.md). Use a matching v0.3.0 checkout for
+fixtures; v0.2.0 does not contain the new Codex/HTTP/session/capture workflows.
 
 Use an activated Python 3.10–3.13 environment on Linux or macOS and a matching
 source checkout for the fixture files. The commands below review synthetic
