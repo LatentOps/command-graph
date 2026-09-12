@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from .trace_capture import TraceRecorder, attach_trace, raw_capture_flag
+
 import hashlib
 import json
 import os
@@ -117,6 +119,8 @@ def build_codex_integration(
     policy_path: str | Path | None = None,
     mcp_map_path: str | Path | None = None,
     audit_path: str | Path | None = None,
+    trace_path: str | Path | None = None,
+    raw_local: bool = False,
     fail_on: str = "warn",
 ) -> CodexIntegration:
     mapping = load_codex_mcp_map(mcp_map_path) if mcp_map_path else {}
@@ -147,7 +151,10 @@ def build_codex_integration(
             audit=JsonlAuditSink(audit_path) if audit_path else None,
         )
     )
-    return CodexIntegration(gate=gate, mcp_map=mapping)
+    ordin, recorder = attach_trace(
+        gate.ordin, trace_path, integration=CODEX_RUNTIME, raw_local=raw_local
+    )
+    return CodexIntegration(gate=AgentGate(ordin), mcp_map=mapping, trace=recorder)
 
 
 def _default_gate() -> AgentGate:
@@ -159,6 +166,7 @@ class CodexIntegration:
     gate: AgentGate = field(default_factory=_default_gate)
     mcp_map: Mapping[str, tuple[str, str]] = field(default_factory=dict)
     session: IntegrationSession | None = None
+    trace: TraceRecorder | None = None
 
     def __post_init__(self) -> None:
         if len(self.mcp_map) > 256:
@@ -292,6 +300,8 @@ class CodexIntegration:
             effects=observed_effects,
             metadata={"runtime": CODEX_RUNTIME, "tool": payload["tool_name"], "status": status},
         )
+        if self.trace is not None:
+            self.trace.record_observation(observation, session_key=_digest(payload["session_id"]))
         if self.session:
             self.session.observe(observation)
         return observation
@@ -332,6 +342,8 @@ def _configured() -> CodexIntegration:
         policy_path=os.environ.get("ORDIN_CODEX_POLICY") or None,
         mcp_map_path=os.environ.get("ORDIN_CODEX_MCP_MAP") or None,
         audit_path=os.environ.get("ORDIN_CODEX_AUDIT") or None,
+        trace_path=os.environ.get("ORDIN_CODEX_TRACE") or None,
+        raw_local=raw_capture_flag(os.environ.get("ORDIN_CODEX_TRACE_RAW", "0")),
         fail_on=os.environ.get("ORDIN_CODEX_FAIL_ON", "warn"),
     )
 
@@ -339,6 +351,8 @@ def _configured() -> CodexIntegration:
 def _run(
     mode: str, payload: Mapping[str, Any], integration: CodexIntegration
 ) -> dict[str, Any] | None:
+    if mode.startswith("session-") and integration.trace is not None:
+        integration.trace.record_boundary(_digest(payload["session_id"]))
     if mode == "pre":
         decision = integration.review_pre_tool(payload)
         return _pre_output("allow" if decision.may_execute else "deny", _reason(decision))
@@ -419,7 +433,10 @@ def main(argv: Sequence[str] | None = None) -> int:
                 reset=mode == "session-reset",
             ) as session:
                 active = CodexIntegration(
-                    gate=integration.gate, mcp_map=integration.mcp_map, session=session
+                    gate=integration.gate,
+                    mcp_map=integration.mcp_map,
+                    session=session,
+                    trace=integration.trace,
                 )
                 output = _run(mode, payload, active)
         else:

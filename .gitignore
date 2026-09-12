@@ -7,3 +7,5 @@ dist/
 build/
 *.egg-info/
 PLAN.md
+.ordin-traces/
+*.ordin-trace.db*

@@ -23,6 +23,7 @@ def test_normalize_bare_search_flags():
 
 
 def test_explicit_subcommands_are_not_rewritten():
+    assert normalize_argv(["trace", "inspect", "local.db"]) == ["trace", "inspect", "local.db"]
     assert normalize_argv(["check", "rm -rf /"]) == [
         "check",
         "rm -rf /",

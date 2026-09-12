@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://latentops.dev/schemas/ordin/trace-candidate.v1.schema.json",
+  "title": "Ordin trace-candidate v1",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": "ordin.trace_candidate.v1"
+    },
+    "derivation": {
+      "const": "semantic_reconstruction"
+    },
+    "capture_digest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "source_mode": {
+      "enum": [
+        "metadata",
+        "raw_local"
+      ]
+    },
+    "integration": {
+      "enum": [
+        "python",
+        "claude-code",
+        "codex",
+        "mcp-proxy",
+        "mcp-http"
+      ]
+    },
+    "review_policy": {
+      "enum": [
+        "warn",
+        "ask",
+        "block"
+      ]
+    },
+    "captured_decisions": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "allow",
+          "warn",
+          "ask",
+          "block"
+        ]
+      },
+      "maxItems": 32,
+      "minItems": 1
+    },
+    "case": {
+      "type": "object"
+    },
+    "capture_context": {
+      "type": "object",
+      "properties": {
+        "ordin_version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "ordin_revision": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[a-f0-9]{40,64}$"
+        },
+        "configuration_digest": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "integration_version": {
+          "const": "1"
+        }
+      },
+      "required": [
+        "ordin_version",
+        "ordin_revision",
+        "configuration_digest",
+        "integration_version"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "schema_version",
+    "derivation",
+    "capture_digest",
+    "source_mode",
+    "integration",
+    "review_policy",
+    "captured_decisions",
+    "case",
+    "capture_context"
+  ],
+  "additionalProperties": false
+}

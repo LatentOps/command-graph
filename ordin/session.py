@@ -6,7 +6,6 @@ import hashlib
 import json
 import os
 import sqlite3
-import stat
 import threading
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -14,6 +13,7 @@ from pathlib import Path
 from typing import Any, Iterator, Mapping
 
 from . import __version__
+from ._private_storage import MAX_DATABASE_BYTES, private_database
 from .action import MAX_ACTION_HISTORY, ActionEnvelope, ActionHistory
 from .agent import AgentDecision, AgentGate
 from .execution import ActionObservation, ObservationHistory
@@ -25,7 +25,6 @@ from .temporal import default_temporal_policy
 SESSION_SCHEMA_VERSION = "ordin.integration_session.v1"
 MAX_SESSION_BYTES = 1_048_576
 MAX_SESSIONS = 64
-MAX_DATABASE_BYTES = 64 * 1024 * 1024
 
 
 def _json(payload: Any) -> str:
@@ -278,48 +277,11 @@ class SqliteSessionStore:
 
     @contextmanager
     def _connection(self) -> Iterator[sqlite3.Connection]:
-        if not self.path.parent.is_dir():
-            raise ValueError("session database directory must already exist")
-        parent = self.path.parent.stat()
-        if os.name == "posix" and (parent.st_uid != os.geteuid() or parent.st_mode & 0o022):
-            raise ValueError(
-                "session database directory must be owned and writable only by its user"
-            )
-        flags = os.O_CREAT | os.O_RDWR | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_BINARY", 0)
-        fd = os.open(self.path, flags, 0o600)
-        try:
-            info = os.fstat(fd)
-            if info.st_size > MAX_DATABASE_BYTES:
-                raise ValueError("session database exceeds its size limit")
-            if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or self.path.is_symlink():
-                raise ValueError("session database must be a regular, unlinked private file")
-            if os.name == "posix" and (info.st_uid != os.geteuid() or info.st_mode & 0o077):
-                raise ValueError("session database requires owner-only permissions")
-        finally:
-            os.close(fd)
-        connection = None
-        try:
-            connection = sqlite3.connect(self.path, timeout=10, isolation_level=None)
-            if connection.execute("PRAGMA page_size").fetchone()[0] != 4096:
-                raise ValueError("unsupported session database page size")
-            connection.execute("PRAGMA trusted_schema=OFF")
-            connection.execute("PRAGMA secure_delete=ON")
-            connection.execute("PRAGMA max_page_count=16384")
-            connection.execute("BEGIN IMMEDIATE")
-            version = connection.execute("PRAGMA user_version").fetchone()[0]
-            if version not in (0, 1):
-                raise ValueError("unsupported session database version")
+        with private_database(self.path, "session") as connection:
             connection.execute(
                 "CREATE TABLE IF NOT EXISTS sessions (identity TEXT PRIMARY KEY, snapshot TEXT NOT NULL)"
             )
-            connection.execute("PRAGMA user_version=1")
             yield connection
-            connection.commit()
-        except sqlite3.Error as exc:
-            raise ValueError("session database unavailable or corrupt; review denied") from exc
-        finally:
-            if connection is not None:
-                connection.close()
 
     @contextmanager
     def transaction(

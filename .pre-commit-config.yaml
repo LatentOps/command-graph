@@ -47,6 +47,10 @@ repos:
           ordin/mcp_contracts.py
           ordin/contracts_cli.py
           ordin/session.py
+          ordin/_private_storage.py
+          ordin/trace_capture.py
+          ordin/trace_replay.py
+          ordin/trace_cli.py
           ordin/session_evaluation.py
           ordin/provenance.py
           ordin/semantics.py

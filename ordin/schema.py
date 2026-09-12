@@ -27,6 +27,8 @@ KNOWN_TEMPLATE_FIELDS = {
     "branch",
 }
 SCHEMA_FILES = {
+    "trace_event": "trace-event.v1.schema.json",
+    "trace_candidate": "trace-candidate.v1.schema.json",
     "codex_mcp_map": "codex-mcp-map.v1.schema.json",
     "mcp_inventory": "mcp-inventory.v1.schema.json",
     "mcp_contract_lock": "mcp-contract-lock.v1.schema.json",

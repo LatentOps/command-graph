@@ -11,7 +11,7 @@ import sys
 import threading
 import uuid
 from decimal import Decimal
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, IO, Mapping, Sequence
 
@@ -31,6 +31,7 @@ from .mcp_contracts import (
 from .policy import FailThreshold, ReviewPolicy
 from .session import IntegrationSession, SessionIdentity
 from .tool_calls import load_tool_semantics
+from .trace_capture import TraceRecorder, attach_trace
 
 
 MCP_PROXY_RUNTIME = "mcp-proxy"
@@ -170,12 +171,14 @@ class MCPStdioSafetyProxy:
         session_id: str | None = None,
         contract_lock: MCPContractLock | None = None,
         runtime_id: str = MCP_PROXY_RUNTIME,
+        trace: TraceRecorder | None = None,
     ) -> None:
         self.adapter = MCPAdapter(server=server_id, shell_tools=shell_tools)
         self.server_id = self.adapter.server
         if not isinstance(runtime_id, str) or not runtime_id or len(runtime_id) > 256:
             raise ValueError("MCP runtime identity must be bounded non-empty text")
         self.runtime_id = runtime_id
+        self.trace = trace
         self.gate = gate if gate is not None else AgentGate()
         self.context = context or ExecutionContext(
             cwd=os.getcwd(),
@@ -308,6 +311,17 @@ class MCPStdioSafetyProxy:
                 context=self.context,
                 action_id=action_id,
             )
+            if self.trace is not None:
+                action = replace(
+                    action,
+                    parameters={
+                        **action.parameters,
+                        "integration": {
+                            "runtime": self.runtime_id,
+                            "session_id_sha256": self.session.identity.key,
+                        },
+                    },
+                )
             decision = self.session.evaluate(
                 action,
                 contract_check=self.contracts.check(tool) if self.contracts is not None else None,
@@ -439,6 +453,8 @@ class MCPStdioSafetyProxy:
             effects=observed_effects,
             metadata=metadata,
         )
+        if self.trace is not None:
+            self.trace.record_observation(observation, session_key=self.session.identity.key)
         self.session.observe(observation)
         if self.observations_path is not None:
             _append_private_jsonl(self.observations_path, observation.as_dict())
@@ -449,6 +465,8 @@ class MCPStdioSafetyProxy:
         with self._lock:
             if self._pending or self._other_pending:
                 raise ValueError("cannot reset an MCP session with in-flight actions")
+            if self.trace is not None:
+                self.trace.record_boundary(self.session.identity.key)
             self.session.reset()
 
     def _process_other_client_message(self, message: Mapping[str, Any]) -> MCPClientMessageDecision:
@@ -509,6 +527,9 @@ def build_mcp_proxy(
     shell_tools: frozenset[str] = frozenset(),
     cwd: str | None = None,
     contract_lock_path: str | Path | None = None,
+    trace_path: str | Path | None = None,
+    raw_local: bool = False,
+    runtime_id: str = MCP_PROXY_RUNTIME,
 ) -> MCPStdioSafetyProxy:
     semantics = load_tool_semantics(semantics_path) if semantics_path is not None else None
     action_policy = load_action_policy(policy_path) if policy_path is not None else None
@@ -519,19 +540,34 @@ def build_mcp_proxy(
         tool_semantics=semantics,
         audit=audit,
     )
+    lock = (
+        MCPContractLock.from_dict(load_contract_json(contract_lock_path))
+        if contract_lock_path is not None
+        else None
+    )
+    ordin, recorder = attach_trace(
+        ordin,
+        trace_path,
+        integration=runtime_id,
+        raw_local=raw_local,
+        configuration={
+            "shell_tools": sorted(shell_tools),
+            "contract_lock": lock.as_dict() if lock else None,
+        },
+    )
     context = ExecutionContext(
         cwd=cwd or os.getcwd(),
-        agent=f"{MCP_PROXY_RUNTIME}:{server_id}",
+        agent=f"{runtime_id}:{server_id}",
     )
     return MCPStdioSafetyProxy(
         server_id=server_id,
         gate=AgentGate(ordin),
+        trace=recorder,
+        runtime_id=runtime_id,
         shell_tools=shell_tools,
         context=context,
         observations_path=observations_path,
-        contract_lock=MCPContractLock.from_dict(load_contract_json(contract_lock_path))
-        if contract_lock_path is not None
-        else None,
+        contract_lock=lock,
     )
 
 
@@ -808,6 +844,10 @@ def _parser() -> argparse.ArgumentParser:
         help="Exact MCP tool name whose documented contract is shell execution",
     )
     parser.add_argument("--audit", help="Optional local redacted decision-audit JSONL path")
+    parser.add_argument("--trace", help="Opt-in private local trace database")
+    parser.add_argument(
+        "--trace-raw-local", action="store_true", help="Capture raw actions; unsafe to share"
+    )
     parser.add_argument("--observations", help="Optional local redacted observation JSONL path")
     parser.add_argument("--cwd", help="Explicit execution context working directory")
     parser.add_argument(
@@ -837,6 +877,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             contract_lock_path=args.contract_lock,
             policy_path=args.policy,
             audit_path=args.audit,
+            trace_path=args.trace,
+            raw_local=args.trace_raw_local,
             observations_path=args.observations,
             fail_on=args.fail_on,
             shell_tools=frozenset(args.shell_tool),

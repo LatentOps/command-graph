@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from .trace_capture import TraceRecorder
+
 import argparse
 import hashlib
 import http.client
@@ -224,8 +226,10 @@ class MCPHTTPServer(ThreadingHTTPServer):
         contract_lock: MCPContractLock | None = None,
         observations_path: str | Path | None = None,
         cwd: str | None = None,
+        trace: TraceRecorder | None = None,
     ) -> None:
         self.config = config
+        self.trace = trace
         self.gate = gate or AgentGate()
         self.shell_tools = shell_tools
         self.contract_lock = contract_lock
@@ -282,6 +286,7 @@ class MCPHTTPServer(ThreadingHTTPServer):
                 session_id=f"{self.config.endpoint_identity}:{token}",
                 contract_lock=self.contract_lock,
                 runtime_id="mcp-http",
+                trace=self.trace,
             )
             session = _HTTPSession(token, credential_digest, reviewer, request_id, active=1)
             self._sessions[token] = session
@@ -969,12 +974,18 @@ def build_http_server(
     shell_tools: frozenset[str] = frozenset(),
     fail_on: FailThreshold = "warn",
     cwd: str | None = None,
+    trace_path: str | Path | None = None,
+    raw_local: bool = False,
 ) -> MCPHTTPServer:
     template = build_mcp_proxy(
         server_id=config.server_id,
         semantics_path=semantics_path,
         policy_path=policy_path,
+        contract_lock_path=contract_lock_path,
         audit_path=audit_path,
+        trace_path=trace_path,
+        raw_local=raw_local,
+        runtime_id="mcp-http",
         shell_tools=shell_tools,
         fail_on=fail_on,
         cwd=cwd,
@@ -987,6 +998,7 @@ def build_http_server(
     return MCPHTTPServer(
         config,
         gate=template.gate,
+        trace=template.trace,
         shell_tools=shell_tools,
         contract_lock=lock,
         observations_path=observations_path,
@@ -1014,6 +1026,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--policy")
     parser.add_argument("--contract-lock")
     parser.add_argument("--audit")
+    parser.add_argument("--trace", help="Opt-in private local trace database")
+    parser.add_argument(
+        "--trace-raw-local", action="store_true", help="Capture raw actions; unsafe to share"
+    )
     parser.add_argument("--observations")
     parser.add_argument("--shell-tool", action="append", default=[])
     parser.add_argument("--fail-on", choices=("warn", "ask", "block"), default="warn")
@@ -1041,6 +1057,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             policy_path=args.policy,
             contract_lock_path=args.contract_lock,
             audit_path=args.audit,
+            trace_path=args.trace,
+            raw_local=args.trace_raw_local,
             observations_path=args.observations,
             shell_tools=frozenset(args.shell_tool),
             fail_on=args.fail_on,

@@ -1,0 +1,439 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://latentops.dev/schemas/ordin/trace-event.v1.schema.json",
+  "title": "Ordin trace-event v1",
+  "type": "object",
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": "ordin.trace_event.v1"
+        },
+        "integration": {
+          "enum": [
+            "python",
+            "claude-code",
+            "codex",
+            "mcp-proxy",
+            "mcp-http"
+          ]
+        },
+        "effects": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "maxItems": 64
+        },
+        "resources": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "enum": [
+                  "path",
+                  "file",
+                  "directory",
+                  "url",
+                  "host",
+                  "network",
+                  "endpoint",
+                  "process",
+                  "package",
+                  "branch",
+                  "unknown"
+                ]
+              },
+              "value_digest": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              }
+            },
+            "required": [
+              "type",
+              "value_digest"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 64
+        },
+        "truncated": {
+          "type": "boolean"
+        },
+        "event": {
+          "const": "review"
+        },
+        "integration_version": {
+          "const": "1"
+        },
+        "ordin_version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "ordin_revision": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[a-f0-9]{40,64}$"
+        },
+        "configuration_digest": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "fail_on": {
+          "enum": [
+            "warn",
+            "ask",
+            "block"
+          ]
+        },
+        "kind": {
+          "enum": [
+            "shell",
+            "tool",
+            "mcp",
+            "unknown"
+          ]
+        },
+        "operation": {
+          "enum": [
+            "execute",
+            "call",
+            "unknown"
+          ]
+        },
+        "identity": {
+          "type": "object",
+          "properties": {
+            "runtime": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "server": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "tool": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "source_runtime": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "source_server": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "source_tool": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        },
+        "decision": {
+          "enum": [
+            "allow",
+            "warn",
+            "ask",
+            "block"
+          ]
+        },
+        "risk": {
+          "enum": [
+            "unknown",
+            "low",
+            "medium",
+            "high",
+            "critical"
+          ]
+        },
+        "disposition": {
+          "enum": [
+            "execute",
+            "escalate",
+            "deny"
+          ]
+        },
+        "temporal_signals": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "signal:path_execution",
+              "category:secret_exposure"
+            ]
+          },
+          "maxItems": 2
+        },
+        "categories": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "maxItems": 32
+        },
+        "provenance_codes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "maxItems": 64
+        },
+        "raw_action": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "$id": "https://latentops.dev/schemas/ordin/action-envelope.v1.schema.json",
+          "title": "Ordin Action Envelope v1",
+          "type": "object",
+          "required": [
+            "schema_version",
+            "action_id",
+            "kind",
+            "operation",
+            "parameters",
+            "intent",
+            "context"
+          ],
+          "properties": {
+            "schema_version": {
+              "const": "ordin.action_envelope.v1"
+            },
+            "action_id": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "kind": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "pattern": "^[a-z][a-z0-9_.-]*$"
+            },
+            "operation": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[a-z][a-z0-9_.-]*$"
+            },
+            "parameters": {
+              "type": "object",
+              "maxProperties": 128,
+              "additionalProperties": true
+            },
+            "intent": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "context": {
+              "type": [
+                "object",
+                "null"
+              ],
+              "properties": {
+                "cwd": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "shell": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "euid": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "minimum": 0
+                },
+                "interactive": {
+                  "type": [
+                    "boolean",
+                    "null"
+                  ]
+                },
+                "repo_root": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "agent": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "schema_version",
+        "integration",
+        "effects",
+        "resources",
+        "truncated",
+        "event",
+        "integration_version",
+        "ordin_version",
+        "ordin_revision",
+        "configuration_digest",
+        "fail_on",
+        "kind",
+        "operation",
+        "identity",
+        "decision",
+        "risk",
+        "disposition",
+        "temporal_signals",
+        "categories",
+        "provenance_codes"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": "ordin.trace_event.v1"
+        },
+        "integration": {
+          "enum": [
+            "python",
+            "claude-code",
+            "codex",
+            "mcp-proxy",
+            "mcp-http"
+          ]
+        },
+        "effects": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "maxItems": 64
+        },
+        "resources": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "enum": [
+                  "path",
+                  "file",
+                  "directory",
+                  "url",
+                  "host",
+                  "network",
+                  "endpoint",
+                  "process",
+                  "package",
+                  "branch",
+                  "unknown"
+                ]
+              },
+              "value_digest": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              }
+            },
+            "required": [
+              "type",
+              "value_digest"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 64
+        },
+        "truncated": {
+          "type": "boolean"
+        },
+        "event": {
+          "const": "observation"
+        },
+        "exit_code": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "status": {
+          "enum": [
+            "success",
+            "failure",
+            "reported",
+            "protocol_error",
+            "tool_error",
+            "task_accepted",
+            "input_required",
+            "unrecognized_result_type"
+          ]
+        }
+      },
+      "required": [
+        "schema_version",
+        "integration",
+        "effects",
+        "resources",
+        "truncated",
+        "event",
+        "exit_code",
+        "status"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": "ordin.trace_event.v1"
+        },
+        "event": {
+          "const": "boundary"
+        },
+        "integration": {
+          "enum": [
+            "python",
+            "claude-code",
+            "codex",
+            "mcp-proxy",
+            "mcp-http"
+          ]
+        }
+      },
+      "required": [
+        "schema_version",
+        "event",
+        "integration"
+      ],
+      "additionalProperties": false
+    }
+  ]
+}
