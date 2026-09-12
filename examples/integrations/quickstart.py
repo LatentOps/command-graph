@@ -6,12 +6,12 @@ from ordin import ActionEnvelope, ActionObservation, AgentGate, ExecutionContext
 
 
 def main() -> int:
-    command = "printf 'ordin quickstart\\n'"
+    command = "ls README.md"
     action = ActionEnvelope(
         kind="shell",
         operation="execute",
         parameters={"command": command},
-        intent="print a local quickstart marker",
+        intent="list files",
         context=ExecutionContext(cwd=".", agent="starter-kit"),
         action_id="starter-kit-shell-1",
     )
