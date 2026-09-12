@@ -372,6 +372,58 @@ def test_duplicate_inflight_and_malformed_calls_fail_closed():
     assert missing_name.response["error"]["code"] == -32600
 
 
+def test_pending_action_survives_history_pressure_and_records_its_result():
+    proxy = MCPStdioSafetyProxy(
+        server_id="fixture",
+        gate=AgentGate(Ordin(tool_semantics=_read_semantics())),
+        shell_tools=frozenset({"shell"}),
+    )
+    original = proxy.process_client_message(_call(1))
+    assert original.forward
+    for request_id in range(2, 33):
+        assert not proxy.process_client_message(_call(request_id, name="untrusted")).forward
+    full = proxy.session.snapshot()
+    assert len(full["history"]["actions"]) == 32
+    refused = proxy.process_client_message(_call(33))
+    assert not refused.forward
+    assert proxy.session.snapshot() == full
+    observation = proxy.observe_server_message(
+        {"jsonrpc": "2.0", "id": 1, "result": {}}, observed_effects=("secret.read",)
+    )
+    assert observation.action_id == original.action_id
+    assert proxy.session.snapshot()["observations"]["observations"][0]["effects"] == ["secret.read"]
+    assert proxy.process_client_message(_call(34)).forward
+    assert len(proxy.session.snapshot()["history"]["actions"]) == 32
+
+
+def test_out_of_order_settlement_keeps_oldest_pending_action_reserved():
+    proxy = MCPStdioSafetyProxy(
+        server_id="fixture", gate=AgentGate(Ordin(tool_semantics=_read_semantics()))
+    )
+    assert proxy.process_client_message(_call(1)).forward
+    assert proxy.process_client_message(_call(2)).forward
+    for request_id in range(3, 33):
+        proxy.process_client_message(_call(request_id, name="untrusted"))
+    proxy.observe_server_message({"jsonrpc": "2.0", "id": 2, "result": {}})
+    assert not proxy.process_client_message(_call(33)).forward
+    assert proxy.pending_count == 1
+    proxy.observe_server_message({"jsonrpc": "2.0", "id": 1, "result": {}})
+    assert proxy.process_client_message(_call(33)).forward
+    assert len(proxy.session.snapshot()["history"]["actions"]) == 32
+
+
+def test_full_history_can_evict_settled_proposals_while_newer_calls_are_pending():
+    proxy = MCPStdioSafetyProxy(
+        server_id="fixture", gate=AgentGate(Ordin(tool_semantics=_read_semantics()))
+    )
+    for request_id in range(1, 32):
+        proxy.process_client_message(_call(request_id, name="untrusted"))
+    assert proxy.process_client_message(_call(32)).forward
+    assert proxy.process_client_message(_call(33)).forward
+    assert proxy.pending_count == 2
+    assert len(proxy.session.snapshot()["history"]["actions"]) == 32
+
+
 def test_tool_result_creates_linked_redacted_observation(tmp_path):
     observations = tmp_path / "observations.jsonl"
     gate = AgentGate(Ordin(tool_semantics=_read_semantics()))
