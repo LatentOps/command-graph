@@ -35,12 +35,14 @@ INVALID_REQUEST_CODE = -32600
 PARSE_ERROR_CODE = -32700
 
 
-def _request_id_key(value: Any) -> str | None:
+def _request_id_key(value: Any) -> str | int | float | None:
     if isinstance(value, bool) or value is None or not isinstance(value, (str, int, float)):
         return None
     if isinstance(value, float) and not math.isfinite(value):
         return None
-    return json.dumps(value, ensure_ascii=False, separators=(",", ":"))
+    # JSON has one Number type. Native numeric equality matches 1 with 1.0
+    # without conflating string IDs or rounding large integer IDs to floats.
+    return value
 
 
 def _request_id_digest(value: Any) -> str:
@@ -161,7 +163,7 @@ class MCPStdioSafetyProxy:
         )
         self.observations_path = Path(observations_path) if observations_path is not None else None
         self._sequence = 0
-        self._pending: dict[str, _PendingToolCall] = {}
+        self._pending: dict[str | int | float, _PendingToolCall] = {}
         self._lock = threading.Lock()
 
     def process_client_message(self, message: Mapping[str, Any]) -> MCPClientMessageDecision:

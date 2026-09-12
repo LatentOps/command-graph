@@ -172,6 +172,10 @@ continue. Malformed upstream output stops the proxy without forwarding it.
 
 For an allowed `tools/call`, Ordin records an in-memory correlation from the JSON-RPC request ID to the action ID. When the upstream server returns the matching result, the proxy can emit `ordin.action_observation.v1` evidence.
 
+Numeric IDs match by value: `1` and `1.0` identify the same pending request,
+including for duplicate detection. String IDs such as `"1"` remain distinct,
+and integer IDs retain their precision.
+
 Persistence is disabled by default. To opt in:
 
 ```bash
