@@ -1,25 +1,22 @@
 # Installation
 
-Ordin is distributed directly from GitHub. Version `0.2.0`
-installs `ordin`, `ordin-claude-hook`, and `ordin-mcp-proxy`.
-
-The README separates the stable `v0.2.0` review path from upcoming v0.3 features.
-The v0.3 candidate adds `ordin-codex-hook` and `ordin-mcp-http`, live sessions,
-contract pinning and capture. Use a development install or candidate wheel for
-the [offline v0.3 quickstart](quickstart.md) until v0.3.0 is published.
+Ordin is distributed directly from GitHub. Version `0.3.0` installs `ordin`,
+`ordin-claude-hook`, `ordin-codex-hook`, `ordin-mcp-proxy`, and `ordin-mcp-http`.
+The README and [offline quickstart](quickstart.md) target that release.
+Use `main` only when you intentionally want unreleased development changes.
 
 ## Install the current stable release
 
-The current stable release is `v0.2.0`. Install it directly from the immutable Git tag:
+The current stable release is `v0.3.0`. Install it directly from the immutable Git tag:
 
 ```bash
-python -m pip install "git+https://github.com/LatentOps/ordin.git@v0.2.0"
+python -m pip install "git+https://github.com/LatentOps/ordin.git@v0.3.0"
 ```
 
 You can also install the validated wheel attached to the GitHub release:
 
 ```bash
-python -m pip install https://github.com/LatentOps/ordin/releases/download/v0.2.0/ordin-0.2.0-py3-none-any.whl
+python -m pip install https://github.com/LatentOps/ordin/releases/download/v0.3.0/ordin-0.3.0-py3-none-any.whl
 ```
 
 Then verify the installation:

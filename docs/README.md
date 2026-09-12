@@ -121,7 +121,7 @@ The safety benchmark has separate hard regression gates for false allows, critic
 - [Command packs](command-packs.md)
 - [Schema contracts](schema-contracts.md)
 - [Releasing Ordin](releasing.md)
-- [v0.3 release notes draft](releases/v0.3.0.md)
+- [v0.3 release notes](releases/v0.3.0.md)
 - [Security and threat model](threat-model.md)
 - [Contributing guidelines](../CONTRIBUTING.md)
 
