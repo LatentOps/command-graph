@@ -8,6 +8,7 @@ from .agent import AgentDecision, AgentGate
 from .api import Ordin
 from .claude_code import ClaudeCodeIntegration
 from .codex import CodexIntegration
+from .http_evaluation import run_http_transport_evaluation
 from .mcp_proxy import APPROVAL_REQUIRED_CODE, BLOCKED_CODE, MCPStdioSafetyProxy
 from .mcp_contracts import MCPContractLock, semantics_binding_digest, tool_contract_digest
 from .tool_calls import ToolResourceBinding, ToolSemanticRule, ToolSemanticsRegistry
@@ -440,7 +441,15 @@ def _mcp_checks() -> list[ConformanceCheck]:
 
 def run_integration_conformance() -> IntegrationConformanceReport:
     return IntegrationConformanceReport(
-        checks=tuple([*_claude_checks(), *_mcp_checks(), *_contract_checks(), *_codex_checks()]),
+        checks=tuple(
+            [
+                *_claude_checks(),
+                *_mcp_checks(),
+                *_contract_checks(),
+                *_codex_checks(),
+                *_http_checks(),
+            ]
+        ),
     )
 
 
@@ -528,3 +537,16 @@ def _codex_checks() -> list[ConformanceCheck]:
             )
         )
     return checks
+
+
+def _http_checks() -> list[ConformanceCheck]:
+    report = run_http_transport_evaluation()
+    return [
+        ConformanceCheck(
+            "mcp-http",
+            check["id"],
+            check["passed"],
+            "pass" if check["passed"] else "HTTP transport control failed",
+        )
+        for check in report.checks
+    ]

@@ -14,6 +14,7 @@ from time import perf_counter_ns
 from typing import Any, Mapping, Sequence
 
 from . import __version__
+from .http_evaluation import HTTPTransportEvaluation, run_http_transport_evaluation
 from .claude_code import (
     CLAUDE_CODE_OBSERVATIONS_ENV,
     ClaudeCodeIntegration,
@@ -88,10 +89,11 @@ class RuntimeIntegrationEvaluationReport:
     repetitions: int
     cases: tuple[RuntimeCaseResult, ...]
     setup_findings: tuple[dict[str, str], ...]
+    http_transport: HTTPTransportEvaluation
 
     @property
     def errors(self) -> list[str]:
-        return [
+        return self.http_transport.errors + [
             (
                 f"{case.id}: expected protocol {case.expected_protocol!r}, "
                 f"got {case.actual_protocol!r}, exit={case.exit_code}"
@@ -164,6 +166,7 @@ class RuntimeIntegrationEvaluationReport:
             "protocol_distribution": self.protocol_distribution,
             "pass_count": passed,
             "failure_count": len(self.cases) - passed,
+            "http_transport": self.http_transport.as_dict(),
             "latency_ms": {
                 "subprocess_end_to_end": _latency_summary(self.all_latencies),
                 "by_integration": self.latency_by_integration(),
@@ -575,6 +578,7 @@ def run_runtime_integration_evaluation(
         repetitions=repetitions,
         cases=cases,
         setup_findings=setup_findings,
+        http_transport=run_http_transport_evaluation(repetitions=repetitions),
     )
 
 
@@ -662,6 +666,7 @@ def render_runtime_integration_markdown(
         "# Runtime integration evaluation",
         "",
         f"Revision: `{report.revision}`",
+        f"HTTP loopback checks: {len(report.http_transport.checks)}; failures: {len(report.http_transport.errors)}.",
         "",
         (
             f"Result: **{payload['pass_count']}/{payload['scope']['cases']} process-level "

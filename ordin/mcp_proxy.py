@@ -169,17 +169,21 @@ class MCPStdioSafetyProxy:
         observations_path: str | Path | None = None,
         session_id: str | None = None,
         contract_lock: MCPContractLock | None = None,
+        runtime_id: str = MCP_PROXY_RUNTIME,
     ) -> None:
         self.adapter = MCPAdapter(server=server_id, shell_tools=shell_tools)
         self.server_id = self.adapter.server
+        if not isinstance(runtime_id, str) or not runtime_id or len(runtime_id) > 256:
+            raise ValueError("MCP runtime identity must be bounded non-empty text")
+        self.runtime_id = runtime_id
         self.gate = gate if gate is not None else AgentGate()
         self.context = context or ExecutionContext(
             cwd=os.getcwd(),
-            agent=f"{MCP_PROXY_RUNTIME}:{self.server_id}",
+            agent=f"{self.runtime_id}:{self.server_id}",
         )
         self.observations_path = Path(observations_path) if observations_path is not None else None
         self.session = IntegrationSession(
-            SessionIdentity(MCP_PROXY_RUNTIME, session_id or uuid.uuid4().hex, self.server_id),
+            SessionIdentity(self.runtime_id, session_id or uuid.uuid4().hex, self.server_id),
             self.gate,
         )
         self._sequence = 0
@@ -397,8 +401,10 @@ class MCPStdioSafetyProxy:
         else:
             result = message.get("result")
             if isinstance(result, Mapping):
+                if "isError" in result and not isinstance(result["isError"], bool):
+                    raise ValueError("MCP tool result isError must be boolean")
                 candidate = result.get("resultType")
-                if isinstance(candidate, str):
+                if candidate in ("task", "input_required"):
                     result_type = candidate
                 if result_type == "task":
                     exit_code = None
@@ -406,6 +412,9 @@ class MCPStdioSafetyProxy:
                 elif result_type == "input_required":
                     exit_code = None
                     status = "input_required"
+                elif candidate is not None:
+                    exit_code = None
+                    status = "unrecognized_result_type"
                 elif result.get("isError") is True:
                     exit_code = 1
                     status = "tool_error"
@@ -413,11 +422,10 @@ class MCPStdioSafetyProxy:
                     exit_code = 0
                     status = "success"
             else:
-                exit_code = 0
-                status = "success"
+                raise ValueError("MCP tool result must be an object")
 
         metadata: dict[str, Any] = {
-            "runtime": MCP_PROXY_RUNTIME,
+            "runtime": self.runtime_id,
             "server": self.server_id,
             "tool": pending.tool,
             "request_id_sha256": pending.request_id_digest,

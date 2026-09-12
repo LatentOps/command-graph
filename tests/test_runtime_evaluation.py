@@ -31,6 +31,7 @@ def test_runtime_integration_evaluation_exercises_process_boundaries():
         "mcp-proxy-process": 3,
     }
     assert payload["failure_count"] == 0
+    assert payload["http_transport"]["errors"] == []
     assert payload["protocol_distribution"]["allow"] == 3
     assert payload["protocol_distribution"]["ask"] == 1
     assert payload["protocol_distribution"]["deny"] == 4

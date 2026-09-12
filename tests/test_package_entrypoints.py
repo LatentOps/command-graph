@@ -54,6 +54,15 @@ def test_package_install_exposes_ordin_cli_graph_data_and_public_api(tmp_path):
     assert "policy" in help_result.stdout.lower()
     assert "temporal" in help_result.stdout.lower()
 
+    http_help = subprocess.run(
+        [str(_venv_script(venv_path, "ordin-mcp-http")), "--help"],
+        check=True,
+        cwd=venv_path,
+        text=True,
+        capture_output=True,
+    )
+    assert "--forward-authorization" in http_help.stdout
+
     codex_doctor = subprocess.run(
         [str(_venv_script(venv_path, "ordin-codex-hook")), "doctor"],
         check=True,
