@@ -1,0 +1,20 @@
+{
+  "schema_version": "ordin.tool_semantics.v1",
+  "registry_id": "ordin.runtime-evaluation",
+  "version": "1",
+  "rules": [
+    {
+      "id": "runtime-read",
+      "kind": "mcp",
+      "server": "runtime-evaluation-server",
+      "tool": "read_file",
+      "effects": ["filesystem.read"],
+      "resources": [
+        {
+          "argument": "path",
+          "type": "path"
+        }
+      ]
+    }
+  ]
+}
