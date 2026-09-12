@@ -2,6 +2,8 @@ import io
 import json
 import sys
 
+import pytest
+
 from ordin.action import ActionEnvelope
 from ordin.claude_code import (
     CLAUDE_CODE_AUDIT_ENV,
@@ -68,6 +70,29 @@ def test_claude_code_allows_known_read_only_tool_with_exact_identity():
     assert decision.review.action.parameters["runtime"] == "claude-code"
     assert decision.review.action.parameters["tool"] == "Read"
     assert output["hookSpecificOutput"]["permissionDecision"] == "allow"
+
+
+@pytest.mark.parametrize("name", [" Read", "Read ", "\tRead\n", "\u00a0Read\u00a0"])
+def test_claude_code_tool_identity_whitespace_loses_trusted_semantics(name):
+    integration = ClaudeCodeIntegration()
+
+    decision = integration.review_pre_tool(_pre_payload(name))
+    output = integration.pre_tool_output(_pre_payload(name))
+
+    assert decision.review.action.parameters["tool"] == name
+    assert decision.disposition == "escalate"
+    assert output["hookSpecificOutput"]["permissionDecision"] == "ask"
+
+
+def test_claude_code_session_identity_whitespace_does_not_alias_observations():
+    integration = ClaudeCodeIntegration()
+    payload = _pre_payload()
+    payload["session_id"] = " session-1 "
+
+    decision = integration.review_pre_tool(payload)
+    observation = integration.observation_from_hook(_post_payload())
+
+    assert decision.review.action.action_id != observation.action_id
 
 
 def test_claude_code_escalates_mutation_and_unknown_tools():

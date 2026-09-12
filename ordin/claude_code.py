@@ -32,7 +32,7 @@ _EXIT_CODE_PATTERN = re.compile(r"^Exit code (-?\d+)(?:\s|$)")
 def _required_text(value: Any, *, name: str, maximum: int = MAX_HOOK_TEXT_LENGTH) -> str:
     if not isinstance(value, str) or not value.strip():
         raise ValueError(f"{name} must be non-empty text")
-    value = value.strip()
+    # Preserve exact tool and event identities, including correlation inputs.
     if len(value) > maximum:
         raise ValueError(f"{name} must be at most {maximum} characters")
     return value
