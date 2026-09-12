@@ -93,6 +93,32 @@ def test_distro_specific_command_stays_visible_when_incompatible(monkeypatch):
     assert "fedora" in result.availability_reason
 
 
+def test_search_refreshes_changed_metadata_and_executable_availability(monkeypatch):
+    entry = _command("alpha")
+    installed = {"alpha": "/usr/bin/alpha"}
+    monkeypatch.setattr(search_module, "load_commands", lambda: [entry])
+    monkeypatch.setattr(search_module, "load_synonyms", lambda: {})
+    environment = EnvironmentInfo(os="linux")
+
+    first = search("inspect demo state", environment=environment, which=installed.get)[0]
+    assert first.command == "alpha"
+    assert first.available is True
+
+    entry["command"] = "beta"
+    entry["summary"] = "Inspect changed configuration."
+    entry["intents"] = ["inspect changed configuration"]
+    installed.clear()
+
+    second = search("inspect changed configuration", environment=environment, which=installed.get)[
+        0
+    ]
+    assert second.command == "beta"
+    assert second.summary == "Inspect changed configuration."
+    assert second.available is False
+    assert second.executable_path is None
+    assert 'exact intent "inspect changed configuration"' in second.why
+
+
 def test_debian_family_metadata_is_exposed_for_apt():
     results = search(
         "install system package curl on ubuntu",
