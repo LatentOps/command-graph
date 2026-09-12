@@ -26,6 +26,7 @@ repos:
           ordin/trajectory_corpus.py
           ordin/regression_replay.py
           ordin/integration_conformance.py
+          ordin/diagnostics.py
           ordin/adapters.py
           ordin/agent.py
           ordin/action.py
