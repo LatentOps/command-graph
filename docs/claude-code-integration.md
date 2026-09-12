@@ -1,5 +1,9 @@
 # Claude Code integration
 
+For continuous temporal review across hook processes, see
+[live integration sessions](integration-sessions.md). Session persistence is explicit
+through `ORDIN_CLAUDE_STATE`; the default hook mode remains stateless.
+
 Ordin ships a dependency-free reference integration for Claude Code command hooks. It uses Claude Code's native `PreToolUse`, `PostToolUse`, and `PostToolUseFailure` events rather than an SDK or hosted service.
 
 This integration was selected because Claude Code exposes a stable pre-execution decision point and structured post-execution events. That lets Ordin sit at the intended boundary:

@@ -76,8 +76,13 @@ from .tool_calls import (
     load_tool_semantics,
 )
 from .trace import ActionTrace, TraceAction
+from .session import SESSION_SCHEMA_VERSION, IntegrationSession, SessionIdentity, SqliteSessionStore
 
 __all__ = [
+    "SESSION_SCHEMA_VERSION",
+    "IntegrationSession",
+    "SessionIdentity",
+    "SqliteSessionStore",
     "ACTION_ENVELOPE_SCHEMA_VERSION",
     "ACTION_HISTORY_SCHEMA_VERSION",
     "ACTION_OBSERVATION_SCHEMA_VERSION",

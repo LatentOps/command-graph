@@ -1,5 +1,9 @@
 # MCP safety proxy
 
+Each proxy connection carries bounded in-memory action and observation history.
+See [live integration sessions](integration-sessions.md) for temporal review, reset,
+correlation limits, and state ownership.
+
 Ordin can run as a local stdio proxy between an MCP client and an upstream MCP server:
 
 ```text

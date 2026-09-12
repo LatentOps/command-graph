@@ -9,6 +9,7 @@ import queue
 import subprocess
 import sys
 import threading
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, IO, Mapping, Sequence
@@ -21,6 +22,7 @@ from .audit import JsonlAuditSink
 from .context import ExecutionContext
 from .execution import ActionObservation
 from .policy import FailThreshold, ReviewPolicy
+from .session import IntegrationSession, SessionIdentity
 from .tool_calls import load_tool_semantics
 
 
@@ -153,6 +155,7 @@ class MCPStdioSafetyProxy:
         shell_tools: frozenset[str] = frozenset(),
         context: ExecutionContext | None = None,
         observations_path: str | Path | None = None,
+        session_id: str | None = None,
     ) -> None:
         self.adapter = MCPAdapter(server=server_id, shell_tools=shell_tools)
         self.server_id = self.adapter.server
@@ -162,12 +165,23 @@ class MCPStdioSafetyProxy:
             agent=f"{MCP_PROXY_RUNTIME}:{self.server_id}",
         )
         self.observations_path = Path(observations_path) if observations_path is not None else None
+        self.session = IntegrationSession(
+            SessionIdentity(MCP_PROXY_RUNTIME, session_id or uuid.uuid4().hex, self.server_id),
+            self.gate,
+        )
         self._sequence = 0
         self._pending: dict[str | int | float, _PendingToolCall] = {}
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
 
     def process_client_message(self, message: Mapping[str, Any]) -> MCPClientMessageDecision:
         """Review a client JSON-RPC message and decide whether to forward it."""
+
+        # Reserve IDs, evaluate history, and register pending observations as
+        # one transaction; concurrent callers cannot reuse an in-flight ID.
+        with self._lock:
+            return self._process_client_message(message)
+
+    def _process_client_message(self, message: Mapping[str, Any]) -> MCPClientMessageDecision:
 
         if not isinstance(message, Mapping):
             return MCPClientMessageDecision(
@@ -233,6 +247,15 @@ class MCPStdioSafetyProxy:
             )
 
         with self._lock:
+            if len(self._pending) >= 32:
+                return MCPClientMessageDecision(
+                    forward=False,
+                    response=_jsonrpc_error(
+                        request_id,
+                        code=APPROVAL_REQUIRED_CODE,
+                        message="Ordin session has reached its in-flight action limit",
+                    ),
+                )
             if request_key in self._pending:
                 return MCPClientMessageDecision(
                     forward=False,
@@ -246,19 +269,19 @@ class MCPStdioSafetyProxy:
             sequence = self._sequence
 
         action_id = _action_id(
-            server_id=self.server_id,
+            server_id=self.session.identity.key,
             request_id=request_id,
             tool=tool,
             sequence=sequence,
         )
         try:
-            decision = self.gate.evaluate_mcp(
-                self.adapter,
+            action = self.adapter.adapt(
                 tool,
                 arguments,
                 context=self.context,
                 action_id=action_id,
             )
+            decision = self.session.evaluate(action)
         except ValueError as exc:
             return MCPClientMessageDecision(
                 forward=False,
@@ -301,8 +324,17 @@ class MCPStdioSafetyProxy:
             action_id=action_id,
         )
 
-    def observe_server_message(self, message: Mapping[str, Any]) -> ActionObservation | None:
+    def observe_server_message(
+        self, message: Mapping[str, Any], *, observed_effects: tuple[str, ...] = ()
+    ) -> ActionObservation | None:
         """Create a redacted observation for a terminal upstream tool response."""
+
+        with self._lock:
+            return self._observe_server_message(message, observed_effects=observed_effects)
+
+    def _observe_server_message(
+        self, message: Mapping[str, Any], *, observed_effects: tuple[str, ...] = ()
+    ) -> ActionObservation | None:
 
         if not isinstance(message, Mapping) or message.get("jsonrpc") != "2.0":
             return None
@@ -356,11 +388,20 @@ class MCPStdioSafetyProxy:
         observation = ActionObservation(
             action_id=pending.action_id,
             exit_code=exit_code,
+            effects=observed_effects,
             metadata=metadata,
         )
+        self.session.observe(observation)
         if self.observations_path is not None:
             _append_private_jsonl(self.observations_path, observation.as_dict())
         return observation
+
+    def reset_session(self) -> None:
+        """Explicitly clear temporal state after all in-flight calls finish."""
+        with self._lock:
+            if self._pending:
+                raise ValueError("cannot reset an MCP session with in-flight actions")
+            self.session.reset()
 
     @property
     def pending_count(self) -> int:
