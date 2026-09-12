@@ -1,10 +1,10 @@
-from __future__ import annotations
+"""Shell-capable contract fixture; records no credentials and executes no command."""
 
 import json
 import sys
 
 
-def main() -> int:
+def main():
     for line in sys.stdin:
         request = json.loads(line)
         method = request.get("method")
@@ -12,7 +12,7 @@ def main() -> int:
             result = {
                 "protocolVersion": "2025-11-25",
                 "capabilities": {"tools": {}},
-                "serverInfo": {"name": "ordin-read-fixture", "version": "1"},
+                "serverInfo": {"name": "ordin-shell-fixture", "version": "1"},
             }
         elif isinstance(method, str) and method.startswith("notifications/"):
             continue
@@ -20,22 +20,24 @@ def main() -> int:
             result = {
                 "tools": [
                     {
-                        "name": "read_note",
-                        "description": "Return a deterministic local fixture note.",
+                        "name": "execute",
                         "inputSchema": {
                             "type": "object",
-                            "properties": {"path": {"type": "string"}},
-                            "required": ["path"],
+                            "properties": {"command": {"type": "string"}},
+                            "required": ["command"],
                         },
                     }
                 ]
             }
         elif method == "tools/call":
-            result = {"content": [{"type": "text", "text": "fixture note"}]}
+            result = {
+                "content": [
+                    {"type": "text", "text": "Fixture only: no shell command was executed."}
+                ]
+            }
         else:
             result = {}
-        response = {"jsonrpc": "2.0", "id": request.get("id"), "result": result}
-        print(json.dumps(response, separators=(",", ":")), flush=True)
+        print(json.dumps({"jsonrpc": "2.0", "id": request.get("id"), "result": result}), flush=True)
     return 0
 
 

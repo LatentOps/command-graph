@@ -40,6 +40,8 @@ repos:
           ordin/codex.py
           ordin/execution.py
           ordin/mcp_proxy.py
+          ordin/mcp_inspection.py
+          ordin/mcp_setup_cli.py
           ordin/mcp_contracts.py
           ordin/contracts_cli.py
           ordin/session.py

@@ -86,6 +86,16 @@ def _policy_summary(review: ActionReview) -> dict[str, Any]:
 
 def _remediations(review: ActionReview) -> list[DiagnosticRemediation]:
     items: list[DiagnosticRemediation] = []
+    if review.provenance is not None and any(
+        record.code.startswith("mcp.contract.") and record.code != "mcp.contract.matched"
+        for record in review.provenance.records
+    ):
+        items.append(
+            DiagnosticRemediation(
+                code="mcp_contract_mismatch",
+                message="Inspect the live MCP inventory and compare the reviewed semantics and contract lock. Resolve missing or changed mappings before approving execution.",
+            )
+        )
     if review.decision == "block":
         items.append(
             DiagnosticRemediation(
@@ -112,7 +122,7 @@ def _remediations(review: ActionReview) -> list[DiagnosticRemediation]:
         items.append(
             DiagnosticRemediation(
                 code="untrusted_tool_identity",
-                message="No trusted tool semantics matched this exact integration identity. Verify runtime/server/tool configuration rather than weakening the review threshold.",
+                message="No trusted semantics matched this exact identity. Use ordin mcp inspect and ordin semantics scaffold, then review the effect/resource mappings before loading them.",
             )
         )
     if review.safer_next_step:

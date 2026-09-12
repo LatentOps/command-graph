@@ -7,6 +7,8 @@ from .cli import main as command_main
 
 
 EXPLICIT_COMMANDS = {
+    "mcp",
+    "semantics",
     "contracts",
     "search",
     "explain",

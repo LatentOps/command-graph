@@ -1,5 +1,8 @@
 # MCP safety proxy
 
+Start with [inspection and semantics setup](mcp-semantics-setup.md) to obtain a
+reviewable local draft without granting trust to discovery metadata.
+
 Use [`--contract-lock`](mcp-contract-pinning.md) to require a reviewed live tool
 contract before an exact tool identity can inherit trusted semantics.
 
