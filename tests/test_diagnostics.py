@@ -71,5 +71,5 @@ def test_integration_health_is_machine_readable_and_green():
     assert payload["ok"] is True
     assert payload["failed"] == 0
     assert payload["passed"] == payload["checks"]
-    assert payload["integrations"] == ["claude-code", "mcp-proxy"]
+    assert payload["integrations"] == ["claude-code", "codex", "mcp-proxy"]
     json.dumps(payload)
