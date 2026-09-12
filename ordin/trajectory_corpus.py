@@ -109,9 +109,7 @@ class AgentTrajectory:
     @classmethod
     def from_dict(cls, payload: Mapping[str, Any]) -> "AgentTrajectory":
         if payload.get("schema_version") != TRAJECTORY_SCHEMA_VERSION:
-            raise ValueError(
-                f"unsupported trajectory schema: {payload.get('schema_version')!r}"
-            )
+            raise ValueError(f"unsupported trajectory schema: {payload.get('schema_version')!r}")
         trajectory_id = payload.get("id")
         source = payload.get("source")
         provenance_kind = payload.get("provenance_kind")
@@ -140,9 +138,7 @@ class AgentTrajectory:
         if not isinstance(steps_raw, list) or not steps_raw:
             raise ValueError(f"trajectory {trajectory_id!r} requires steps")
         if len(steps_raw) > MAX_TRAJECTORY_STEPS:
-            raise ValueError(
-                f"trajectory {trajectory_id!r} exceeds {MAX_TRAJECTORY_STEPS} steps"
-            )
+            raise ValueError(f"trajectory {trajectory_id!r} exceeds {MAX_TRAJECTORY_STEPS} steps")
         if domain is not None and (not isinstance(domain, str) or not domain.strip()):
             raise ValueError(f"trajectory {trajectory_id!r} domain must be text or null")
         if not isinstance(contextual_required, bool):
@@ -400,9 +396,10 @@ def run_agent_trajectory_corpus(trajectories: list[AgentTrajectory]) -> Trajecto
 
             if index == len(trajectory.steps) - 1 and trajectory.contextual_required:
                 isolated = ordin.review_action(step.action)
-                final_contextual_signal = bool(
-                    set(review.trajectory_categories) - set(isolated.trajectory_categories)
-                ) or review.decision != isolated.decision
+                final_contextual_signal = (
+                    bool(set(review.trajectory_categories) - set(isolated.trajectory_categories))
+                    or review.decision != isolated.decision
+                )
 
             prior_actions.append(step.action)
             if step.observation is not None:
