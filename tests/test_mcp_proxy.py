@@ -2,6 +2,8 @@ import json
 import subprocess
 import sys
 
+import pytest
+
 from ordin.agent import AgentGate
 from ordin.api import Ordin
 from ordin.mcp_proxy import (
@@ -305,3 +307,44 @@ for line in sys.stdin:
     saved = json.loads(observations.read_text(encoding="utf-8"))
     assert saved["metadata"]["tool"] == "read_file"
     assert "fixture-secret" not in observations.read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize(
+    ("server_code", "expected_code"),
+    [
+        ("pass", 0),
+        ("raise SystemExit(7)", 7),
+        ("import time; print('invalid-json', flush=True); time.sleep(30)", 1),
+    ],
+)
+def test_stdio_proxy_exits_when_upstream_stops_with_client_input_open(server_code, expected_code):
+    process = subprocess.Popen(
+        [
+            sys.executable,
+            "-m",
+            "ordin.mcp_proxy",
+            "--server-id",
+            "fixture",
+            "--shutdown-timeout",
+            "0.2",
+            "--",
+            sys.executable,
+            "-c",
+            server_code,
+        ],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    try:
+        # A persistent MCP client keeps stdin open while waiting for a response.
+        assert process.wait(timeout=5) == expected_code
+    finally:
+        process.stdin.close()
+        try:
+            process.wait(timeout=3)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait(timeout=3)
+        process.stdout.close()
+        process.stderr.close()
