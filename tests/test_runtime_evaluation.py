@@ -14,7 +14,14 @@ from ordin.runtime_evaluation import (
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_runtime_integration_evaluation_exercises_process_boundaries():
+def test_runtime_integration_evaluation_exercises_process_boundaries(tmp_path, monkeypatch):
+    shadow = tmp_path / "ordin"
+    shadow.mkdir()
+    (shadow / "__init__.py").write_text(
+        "raise RuntimeError('source shadow must not be imported')\n"
+    )
+    monkeypatch.setenv("PYTHONPATH", str(tmp_path))
+    monkeypatch.chdir(tmp_path)
     report = run_runtime_integration_evaluation(
         revision="test-revision",
         repo_root=REPO_ROOT,
