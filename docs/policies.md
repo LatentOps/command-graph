@@ -131,6 +131,8 @@ Missing context does not pretend to satisfy a context constraint. For example, `
 
 `repo_scope` uses the caller-supplied working directory and repository root. Both must be absolute POSIX paths; a missing, empty, or relative value gives scope `unknown`. `cwd_prefixes` also requires absolute POSIX paths. Ordin never resolves these policy inputs against the reviewer's own working directory. Matching is lexical and case-sensitive and does not resolve filesystem aliases.
 
+To require established repository membership, reject both `outside` and `unknown` scope with separate rules. An `outside` rule alone does not match missing or unresolved context.
+
 ## Decision semantics
 
 Policy conflict resolution uses Ordin's execution enforcement order:
