@@ -161,6 +161,13 @@ Only `tools/call` is intercepted before upstream execution. Allowed tool calls a
 
 The proxy accepts the current individual-message stdio framing: one UTF-8 JSON-RPC object per newline, with no embedded newline. It rejects invalid JSON, non-object messages, malformed `tools/call` requests, duplicate in-flight tool request IDs, and messages above the 10 MiB transport bound instead of forwarding ambiguous input.
 
+Both transport directions reject duplicate JSON object members, non-finite
+numbers (including overflow to infinity), and nesting deeper than 64 levels
+below the outer object. This prevents the review from selecting one duplicate
+value while a different parser selects another from the forwarded bytes.
+Malformed client messages receive a parse error, and later valid messages can
+continue. Malformed upstream output stops the proxy without forwarding it.
+
 ## Post-action observations
 
 For an allowed `tools/call`, Ordin records an in-memory correlation from the JSON-RPC request ID to the action ID. When the upstream server returns the matching result, the proxy can emit `ordin.action_observation.v1` evidence.
