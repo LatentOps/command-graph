@@ -14,11 +14,11 @@ Expected shape:
 
 ```text
 decision=allow disposition=execute
-ordin quickstart
+README.md
 observation=ordin.action_observation.v1 exit=0
 ```
 
-The example reviews a shell action first. Only after Ordin returns `execute` does the caller invoke `sh`. The caller then records a linked `ActionObservation`. Ordin itself never executes the command.
+The example reviews the curated low-risk `ls` shell action with the matching `list files` intent first. Only after Ordin returns `execute` does the caller invoke `sh`. The caller then records a linked `ActionObservation`. Ordin itself never executes the command.
 
 ## 2. Raw JSON / subprocess boundary
 
@@ -62,8 +62,8 @@ For direct Python embedding, `AgentGate` is the smallest boundary:
 from ordin import AgentGate
 
 result = AgentGate().evaluate(
-    "git status --short",
-    intent="inspect repository state",
+    "ls README.md",
+    intent="list files",
 )
 
 if result.may_execute:
@@ -81,13 +81,15 @@ For Claude Code, use the maintained hook integration in [`docs/claude-code-integ
 
 ## 5. CI gate
 
-Use Ordin as a deterministic pre-execution check without executing the command:
+Use Ordin as a deterministic pre-execution check without executing the command. Supply the same trusted intent your runtime would provide:
 
 ```bash
-python examples/integrations/ci_gate.py "git status --short"
+python examples/integrations/ci_gate.py \
+  --intent "list files" \
+  "ls README.md"
 ```
 
-The process exits `0` only when the configured `ReviewPolicy` permits automatic execution. `warn`, `ask`, and `block` therefore fail this conservative example.
+The process exits `0` only when the configured `ReviewPolicy` permits automatic execution. `warn`, `ask`, and `block` therefore fail this conservative example. The example requires intent explicitly rather than inventing intent inside the adapter.
 
 ## Optional local evidence
 
