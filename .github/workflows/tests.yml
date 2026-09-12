@@ -29,7 +29,8 @@ jobs:
       - name: Install development tooling
         run: |
           python -m pip install --upgrade pip
-          python -m pip install ".[dev]"
+          python -m pip install --require-hashes -r requirements/dev-baseline.txt
+          python -m pip install --no-build-isolation --no-deps .
       - name: Validate pre-commit configuration
         run: pre-commit validate-config
       - name: Run shared local quality gate

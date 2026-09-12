@@ -113,6 +113,31 @@ def test_semantic_scores_are_clamped_and_length_checked():
         validate_semantic_scores([0.5], 2)
 
 
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), -float("inf")])
+def test_nonfinite_semantic_scores_cannot_become_confident_ranking_signals(value):
+    with pytest.raises(ValueError, match="finite"):
+        validate_semantic_scores([value], 1)
+
+
+def test_optional_backend_loads_an_explicit_local_model_only(tmp_path, monkeypatch):
+    import sys
+    from types import SimpleNamespace
+
+    calls = []
+    model = object()
+
+    def constructor(path, *, local_files_only):
+        calls.append((path, local_files_only))
+        return model
+
+    monkeypatch.setitem(
+        sys.modules, "sentence_transformers", SimpleNamespace(SentenceTransformer=constructor)
+    )
+    result = SentenceTransformerReranker.from_local_path(tmp_path)
+    assert calls == [(str(tmp_path.resolve()), True)]
+    assert result._model is model
+
+
 def test_invalid_semantic_weight_is_rejected(monkeypatch):
     monkeypatch.setattr(search_module, "load_commands", lambda: [_entry("alpha")])
     monkeypatch.setattr(search_module, "load_synonyms", lambda: {})

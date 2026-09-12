@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import math
+
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol, Sequence
@@ -65,6 +67,8 @@ def validate_semantic_scores(scores: Sequence[float], expected: int) -> list[flo
     validated: list[float] = []
     for value in scores:
         score = float(value)
+        if not math.isfinite(score):
+            raise ValueError("semantic reranker scores must be finite")
         # Similarity backends are expected to produce cosine-like values. Clamp
         # rather than letting an optional backend dominate deterministic ranking.
         validated.append(max(-1.0, min(1.0, score)))
