@@ -131,6 +131,7 @@ then explicitly promote it to a new local file:
 ```bash
 ordin trace promote "$ORDIN_DEMO_DIR/candidate.json" \
   --target failure --output reviewed-regression.jsonl --json
+python scripts/run_regression_replay.py --corpus reviewed-regression.jsonl
 ```
 
 For real capture, follow [capture/sanitization](trace-capture.md). Raw capture

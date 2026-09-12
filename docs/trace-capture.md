@@ -117,8 +117,8 @@ command stages, commits, or pushes a fixture.
 | Target | Existing contract | Runner |
 | --- | --- | --- |
 | `trajectory` | `ordin.agent_trajectory.v1` | `scripts/run_trajectory_corpus.py` |
-| `failure` | `ordin.regression_case.v1` | `scripts/replay_regression.py` |
-| `extended` | `ordin.regression_replay.v1` | Existing regression promotion loader/runner |
+| `failure` | `ordin.regression_case.v1` | `scripts/run_regression_replay.py` |
+| `extended` | `ordin.regression_replay.v1` | `scripts/replay_regression.py` |
 | `conformance` | Regression case plus capture provenance | `scripts/run_integration_conformance.py --captured-fixtures PATH` |
 
 Promoted records retain capture/version/configuration digests and the original

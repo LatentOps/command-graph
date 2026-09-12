@@ -289,6 +289,22 @@ def run_quickstarts() -> dict[str, Any]:
             str(temporary / "regression.jsonl"),
         )["ok"]
         checks.append("trace_sanitize_replay_promote")
+        subprocess.run(
+            [
+                sys.executable,
+                "-I",
+                str(ROOT / "scripts/run_regression_replay.py"),
+                "--corpus",
+                str(temporary / "regression.jsonl"),
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=20,
+            cwd=temporary,
+            env=env,
+        )
+        checks.append("promoted_failure_corpus_replay")
     return {
         "schema_version": "ordin.quickstart_report.v1",
         "ok": True,
