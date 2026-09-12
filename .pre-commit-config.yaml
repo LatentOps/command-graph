@@ -24,6 +24,7 @@ repos:
           python -m mypy
           ordin/safety_benchmark.py
           ordin/trajectory_corpus.py
+          ordin/regression_replay.py
           ordin/adapters.py
           ordin/agent.py
           ordin/action.py
