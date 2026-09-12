@@ -60,9 +60,55 @@ Every `v*` tag:
 6. uploads the validated distributions as a workflow artifact;
 7. creates the matching GitHub Release and attaches the exact validated wheel and source distribution.
 
-The workflow refuses to replace an already-existing GitHub Release under the same tag. Published release assets are treated as immutable.
+The workflow refuses to replace an already-existing GitHub Release under the same tag. Published release assets are treated as immutable. Wait for every maintained CI check on the exact merged `main` commit before creating the tag; publication validates those checks again and requires the tagged commit to belong to `main`.
 
 `workflow_dispatch` can exercise build and validation without creating a release.
+
+PRs also run the release build and integrity checks with read permissions.
+Manual validation can attest development artifacts; only tag pushes publish a
+release. PRs cannot attest or publish. The
+release build uses the pinned tools in `requirements/release.txt` without a
+second isolated backend environment, so its recorded build inventory includes
+the backend actually used. Transitive tools remain dependency-resolved and are
+recorded in the SBOM; this is not a reproducible-build guarantee.
+
+## Verify artifact identity
+
+Starting with the next release, the attached assets include:
+
+- the tested wheel and source distribution;
+- `SHA256SUMS` covering both distributions, `release.json`, and `sbom.cdx.json`;
+- `release.json`, binding package/runtime versions and artifact hashes to the source commit and tag;
+- a CycloneDX 1.6 SBOM describing the core artifact and observed build environment;
+- `provenance.sigstore.json`, the GitHub attestation verification bundle.
+
+The SBOM marks build-environment components as excluded from the core runtime.
+It does not claim that optional semantic extras or arbitrary downstream
+environments were installed or inventoried. Checksums detect changed bytes;
+attestation verification establishes which workflow/source identity vouched
+for those bytes. Neither proves the source is free of vulnerabilities.
+
+After downloading all assets into a new directory, verify them against the
+commit you independently trust for the release:
+
+```bash
+gh attestation verify SHA256SUMS --repo LatentOps/ordin \
+  --signer-workflow LatentOps/ordin/.github/workflows/release.yml \
+  --source-digest TRUSTED_FULL_COMMIT_SHA
+sha256sum --check SHA256SUMS
+# macOS: shasum -a 256 --check SHA256SUMS
+```
+
+For verification with the downloaded bundle, add
+`--bundle provenance.sigstore.json` to the GitHub CLI command. See
+[GitHub CLI attestation verification](https://cli.github.com/manual/gh_attestation_verify)
+for trust-root and offline options. Inspect `release.json` to confirm the
+intended tag/version before installing the wheel.
+
+The publish job downloads tested artifacts by their workflow artifact ID,
+rechecks checksums, source/tag/version equality, and the remote tag's current
+commit, then verifies attestation identity. It does not rebuild. Existing
+releases, including `v0.2.0`, are not modified retroactively to add new metadata.
 
 ## Installing releases
 

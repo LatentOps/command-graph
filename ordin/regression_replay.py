@@ -85,6 +85,7 @@ class FailureRegressionCase:
     source: str
     trajectory: AgentTrajectory
     schema_version: str = REGRESSION_SCHEMA_VERSION
+    audit_control: str | None = None
 
     @classmethod
     def from_dict(cls, payload: Mapping[str, Any]) -> "FailureRegressionCase":
@@ -104,12 +105,19 @@ class FailureRegressionCase:
         if not isinstance(trajectory_raw, Mapping):
             raise ValueError(f"regression {case_id!r} requires trajectory object")
         trajectory = AgentTrajectory.from_dict(trajectory_raw)
+        audit_control = payload.get("audit_control")
+        if audit_control is not None and (
+            failure_class != "provenance_audit"
+            or audit_control not in {"interleaved_writers", "ambiguous_json", "tail_checkpoint"}
+        ):
+            raise ValueError("unknown or misplaced audit regression control")
         return cls(
             id=case_id,
             failure_class=failure_class,
             invariant=invariant,
             source=source,
             trajectory=trajectory,
+            audit_control=audit_control,
         )
 
 
@@ -117,10 +125,11 @@ class FailureRegressionCase:
 class FailureRegressionResult:
     case: FailureRegressionCase
     trajectory_result: TrajectoryResult
+    audit_errors: tuple[str, ...] = ()
 
     @property
     def matches(self) -> bool:
-        return self.trajectory_result.matches
+        return self.trajectory_result.matches and not self.audit_errors
 
     @property
     def critical_miss(self) -> bool:
@@ -132,6 +141,8 @@ class FailureRegressionResult:
     def diagnostic(self) -> str:
         if self.matches:
             return f"{self.case.id}: pass"
+        if self.audit_errors:
+            return f"{self.case.id}: {'; '.join(self.audit_errors)}"
         return f"{self.case.id}: {self.trajectory_result.diagnostic()}"
 
 
@@ -174,6 +185,7 @@ class FailureRegressionReport:
                     "source": result.case.source,
                     "matches": result.matches,
                     "critical_miss": result.critical_miss,
+                    "audit_errors": list(result.audit_errors),
                 }
                 for result in self.results
             ],
@@ -222,6 +234,45 @@ def run_failure_regressions(cases: list[FailureRegressionCase]) -> FailureRegres
             FailureRegressionResult(
                 case=case,
                 trajectory_result=trajectory_report.results[0],
+                audit_errors=_audit_control_errors(case),
             )
         )
     return FailureRegressionReport(results=tuple(results))
+
+
+def _audit_control_errors(case: FailureRegressionCase) -> tuple[str, ...]:
+    if case.audit_control is None:
+        return ()
+    from tempfile import TemporaryDirectory
+    from .action import ActionEnvelope
+    from .api import Ordin
+    from .audit import JsonlAuditSink, verify_audit_jsonl
+
+    try:
+        with TemporaryDirectory(prefix="ordin-audit-regression-") as directory:
+            path = Path(directory) / "audit.jsonl"
+            first = JsonlAuditSink(path, hash_chain=True)
+            second = JsonlAuditSink(path, hash_chain=True)
+            review = Ordin().review_action(ActionEnvelope.shell("git status --short"))
+            head = first.record(review).event_hash
+            if case.audit_control == "interleaved_writers":
+                second.record(review)
+                first.record(review)
+                result = verify_audit_jsonl(path, require_hash_chain=True)
+                ok = result.ok and result.event_count == 3
+            elif case.audit_control == "ambiguous_json":
+                raw = path.read_text()
+                path.write_text(
+                    raw.replace(
+                        '"schema_version":', '"schema_version":"invalid","schema_version":', 1
+                    )
+                )
+                ok = not verify_audit_jsonl(path, require_hash_chain=True).ok
+            else:
+                path.write_bytes(b"")
+                ok = not verify_audit_jsonl(
+                    path, require_hash_chain=True, expected_last_hash=head
+                ).ok
+            return () if ok else (f"audit control {case.audit_control} failed",)
+    except (OSError, ValueError) as exc:
+        return (f"audit control {case.audit_control}: {exc}",)

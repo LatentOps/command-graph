@@ -7,10 +7,11 @@ import threading
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any, BinaryIO, Protocol
 
 from . import AUDIT_EVENT_SCHEMA_VERSION, __version__
 from .action import ActionReview
+from ._audit_storage import MAX_AUDIT_BYTES, load_audit_line, locked_audit, signature
 from .policy import Decision
 from .provenance import DecisionProvenance
 
@@ -19,7 +20,9 @@ MAX_AUDIT_LINE_BYTES = 1_048_576
 
 
 def _canonical_json(payload: dict[str, Any]) -> str:
-    return json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return json.dumps(
+        payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False
+    )
 
 
 def action_digest(review: ActionReview) -> str:
@@ -154,8 +157,12 @@ class JsonlAuditSink:
         self.fsync = fsync
         self._lock = threading.Lock()
         self._last_hash: str | None = None
+        self._signature: tuple[int, ...] | None = None
         if self.hash_chain and self.path.exists() and self.path.stat().st_size:
-            verification = verify_audit_jsonl(self.path, require_hash_chain=True)
+            with locked_audit(self.path) as fd:
+                with os.fdopen(os.dup(fd), "rb") as handle:
+                    verification = _verify_audit_stream(handle, require_hash_chain=True)
+                self._signature = signature(os.fstat(fd))
             if not verification.ok:
                 raise ValueError(
                     "existing audit hash chain is invalid: " + "; ".join(verification.errors)
@@ -163,7 +170,19 @@ class JsonlAuditSink:
             self._last_hash = verification.last_hash
 
     def record(self, review: ActionReview) -> AuditEvent:
-        with self._lock:
+        with self._lock, locked_audit(self.path) as fd:
+            info = os.fstat(fd)
+            if self.hash_chain and signature(info) != self._signature:
+                # Reuse the verified head only when the file is unchanged. Other
+                # instances/processes must observe the current head under the lock.
+                with os.fdopen(os.dup(fd), "rb") as handle:
+                    handle.seek(0)
+                    verification = _verify_audit_stream(handle, require_hash_chain=True)
+                if not verification.ok:
+                    raise ValueError(
+                        "existing audit hash chain is invalid: " + "; ".join(verification.errors)
+                    )
+                self._last_hash = verification.last_hash
             event = build_audit_event(
                 review,
                 previous_hash=self._last_hash,
@@ -175,21 +194,19 @@ class JsonlAuditSink:
             line = (_canonical_json(event.as_dict()) + "\n").encode("utf-8")
             if len(line) > MAX_AUDIT_LINE_BYTES:
                 raise ValueError(f"audit event exceeds maximum size {MAX_AUDIT_LINE_BYTES} bytes")
-            flags = os.O_WRONLY | os.O_CREAT | os.O_APPEND | getattr(os, "O_BINARY", 0)
-            fd = os.open(self.path, flags, 0o600)
-            try:
-                view = memoryview(line)
-                while view:
-                    written = os.write(fd, view)
-                    if written <= 0:
-                        raise OSError("audit append made no progress")
-                    view = view[written:]
-                if self.fsync:
-                    os.fsync(fd)
-            finally:
-                os.close(fd)
+            if info.st_size + len(line) > MAX_AUDIT_BYTES:
+                raise ValueError("audit file exceeds byte limit")
+            view = memoryview(line)
+            while view:
+                written = os.write(fd, view)
+                if written <= 0:
+                    raise OSError("audit append made no progress")
+                view = view[written:]
+            if self.fsync:
+                os.fsync(fd)
             if self.hash_chain:
                 self._last_hash = event.event_hash
+            self._signature = signature(os.fstat(fd))
             return event
 
 
@@ -197,6 +214,7 @@ def verify_audit_jsonl(
     path: str | Path,
     *,
     require_hash_chain: bool = False,
+    expected_last_hash: str | None = None,
 ) -> AuditVerification:
     audit_path = Path(path)
     if not audit_path.exists():
@@ -207,55 +225,74 @@ def verify_audit_jsonl(
             errors=("audit file does not exist",),
         )
 
+    try:
+        with audit_path.open("rb") as handle:
+            result = _verify_audit_stream(handle, require_hash_chain=require_hash_chain)
+            if expected_last_hash is not None and result.last_hash != expected_last_hash:
+                return AuditVerification(
+                    False,
+                    result.event_count,
+                    result.last_hash,
+                    (*result.errors, "audit head differs from trusted checkpoint"),
+                )
+            return result
+    except OSError as exc:
+        return AuditVerification(False, 0, None, (str(exc),))
+
+
+def _verify_audit_stream(handle: BinaryIO, *, require_hash_chain: bool) -> AuditVerification:
     errors: list[str] = []
     previous_hash: str | None = None
     event_count = 0
     try:
-        with audit_path.open("rb") as handle:
-            for line_number, raw in enumerate(handle, start=1):
-                if len(raw) > MAX_AUDIT_LINE_BYTES:
-                    errors.append(f"line {line_number}: audit event exceeds maximum size")
-                    continue
-                if not raw.endswith(b"\n"):
-                    errors.append(f"line {line_number}: incomplete audit line")
-                try:
-                    payload = json.loads(raw.decode("utf-8"))
-                except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-                    errors.append(f"line {line_number}: invalid JSON: {exc}")
-                    continue
-                if not isinstance(payload, dict):
-                    errors.append(f"line {line_number}: audit event must be an object")
-                    continue
-                from .schema import validate_named_schema
+        if os.fstat(handle.fileno()).st_size > MAX_AUDIT_BYTES:
+            return AuditVerification(False, 0, None, ("audit file exceeds byte limit",))
+        for line_number, raw in enumerate(
+            iter(lambda: handle.readline(MAX_AUDIT_LINE_BYTES + 1), b""), start=1
+        ):
+            if len(raw) > MAX_AUDIT_LINE_BYTES:
+                errors.append(f"line {line_number}: audit event exceeds maximum size")
+                break
+            if not raw.endswith(b"\n"):
+                errors.append(f"line {line_number}: incomplete audit line")
+            try:
+                payload = load_audit_line(raw)
+            except (UnicodeDecodeError, ValueError, RecursionError):
+                errors.append(f"line {line_number}: invalid or ambiguous JSON")
+                break
+            if not isinstance(payload, dict):
+                errors.append(f"line {line_number}: audit event must be an object")
+                continue
+            from .schema import validate_named_schema
 
-                schema_errors = validate_named_schema("audit_event", payload)
-                if schema_errors:
-                    errors.extend(f"line {line_number}: {error}" for error in schema_errors)
-                provenance = payload.get("provenance")
-                if isinstance(provenance, dict):
-                    if payload.get("decision") != provenance.get("final_decision"):
-                        errors.append(f"line {line_number}: decision disagrees with provenance")
-                    if payload.get("risk") != provenance.get("final_risk"):
-                        errors.append(f"line {line_number}: risk disagrees with provenance")
-                event_count += 1
-                event_hash = payload.get("event_hash")
-                previous = payload.get("previous_hash")
-                if event_hash is None:
-                    if require_hash_chain:
-                        errors.append(f"line {line_number}: missing event_hash")
-                    if previous is not None:
-                        errors.append(f"line {line_number}: previous_hash without event_hash")
-                    previous_hash = None
-                    continue
-                if not isinstance(event_hash, str) or len(event_hash) != 64:
-                    errors.append(f"line {line_number}: invalid event_hash")
-                    continue
-                if previous != previous_hash:
-                    errors.append(f"line {line_number}: previous_hash does not match prior event")
-                expected = _event_hash(payload)
-                if event_hash != expected:
-                    errors.append(f"line {line_number}: event_hash mismatch")
-                previous_hash = event_hash
+            schema_errors = validate_named_schema("audit_event", payload)
+            if schema_errors:
+                errors.extend(f"line {line_number}: {error}" for error in schema_errors)
+            provenance = payload.get("provenance")
+            if isinstance(provenance, dict):
+                if payload.get("decision") != provenance.get("final_decision"):
+                    errors.append(f"line {line_number}: decision disagrees with provenance")
+                if payload.get("risk") != provenance.get("final_risk"):
+                    errors.append(f"line {line_number}: risk disagrees with provenance")
+            event_count += 1
+            event_hash = payload.get("event_hash")
+            previous = payload.get("previous_hash")
+            if event_hash is None:
+                if require_hash_chain:
+                    errors.append(f"line {line_number}: missing event_hash")
+                if previous is not None:
+                    errors.append(f"line {line_number}: previous_hash without event_hash")
+                previous_hash = None
+                continue
+            if not isinstance(event_hash, str) or len(event_hash) != 64:
+                errors.append(f"line {line_number}: invalid event_hash")
+                continue
+            if previous != previous_hash:
+                errors.append(f"line {line_number}: previous_hash does not match prior event")
+            expected = _event_hash(payload)
+            if event_hash != expected:
+                errors.append(f"line {line_number}: event_hash mismatch")
+            previous_hash = event_hash
     except OSError as exc:
         return AuditVerification(
             ok=False,
