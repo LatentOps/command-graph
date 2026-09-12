@@ -1,6 +1,7 @@
 import io
 import json
 import sys
+from pathlib import Path
 
 from ordin.cli import main
 from ordin.enforcement import enforcement_exit_code
@@ -71,6 +72,21 @@ def test_stdin_requires_versioned_schema(monkeypatch, capsys):
     assert exit_code == 2
     assert payload["error"] == "invalid_review_request"
     assert "schema validation failed" in payload["message"]
+
+
+def test_documented_review_example_is_accepted_through_stdin(monkeypatch, capsys):
+    example = Path(__file__).resolve().parents[1] / "examples" / "review.json"
+    text = example.read_text(encoding="utf-8")
+    request = json.loads(text)
+    monkeypatch.setattr(sys, "stdin", io.StringIO(text))
+
+    exit_code = main(["review", "--stdin", "--json"])
+    payload = json.loads(capsys.readouterr().out)
+
+    assert exit_code == 0
+    assert payload["command"] == request["command"]
+    assert payload["context"]["cwd"] == request["context"]["cwd"]
+    assert "decision" in payload
 
 
 def test_invalid_stdin_json_is_structured_error(monkeypatch, capsys):
