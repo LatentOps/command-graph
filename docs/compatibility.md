@@ -1,5 +1,8 @@
 # Platform and integration compatibility
 
+The [wheel-based quickstart](quickstart.md) is the onboarding acceptance path;
+the matrix below states what its host/runtime checks do and do not certify.
+
 Ordin's Python runtime and integration boundaries work on Linux and macOS.
 Its detailed command knowledge remains Linux-first. Runtime support does not
 mean that every suggested command or option exists on the local system.

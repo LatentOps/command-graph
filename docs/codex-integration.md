@@ -4,16 +4,16 @@
 `AgentGate`, policies, temporal history, and observations used by other Ordin
 integrations. Codex owns execution, sandboxing, credentials, approvals, and retries.
 
-This requires Ordin's 0.3 development line; the 0.2.0 release does not contain it.
+This feature requires Ordin 0.3; while that release is in preparation, install
+the development build. The 0.2.0 release does not contain it.
 The adapter follows the [official Codex hook contract](https://developers.openai.com/codex/hooks/),
 checked on 2026-09-12. Evaluation uses local fixtures without model requests.
 
 ## Install and verify
 
-From a development checkout in a Linux/POSIX Python environment:
+In an activated Linux or macOS environment with Ordin 0.3 installed:
 
 ```bash
-python3 -m pip install -e .
 ordin-codex-hook doctor
 ordin-codex-hook install ~/.codex/hooks.json
 ```
@@ -23,6 +23,9 @@ interpreter and packaged launcher. It refuses to overwrite an existing file. If
 that layer already exists, install to a temporary file and merge its event groups
 after reviewing both configurations. Avoid installing duplicate handlers in multiple
 layers: Codex runs all matching hooks.
+
+The [offline quickstart](quickstart.md) tests this installer and protocol path
+against the built wheel, without launching Codex or making a model request.
 
 Restart Codex, open `/hooks`, and review/trust the definitions. Codex skips untrusted
 or disabled hooks. `doctor` validates configuration loading, not the host's current
@@ -103,6 +106,8 @@ Codex's call hook does not expose a complete live discovery inventory itself.
 | `ORDIN_CODEX_STATE` | Opt-in private SQLite session database |
 | `ORDIN_CODEX_AUDIT` | Optional redacted decision audit |
 | `ORDIN_CODEX_OBSERVATIONS` | Optional redacted post-tool JSONL |
+| `ORDIN_CODEX_TRACE` | Optional private action-capture database |
+| `ORDIN_CODEX_TRACE_RAW` | Explicit `1` adds raw local actions; unsafe to share |
 
 For continuous temporal review, create an owner-only directory outside the repository
 and set `ORDIN_CODEX_STATE` consistently for every hook. Start/pre/post/end hooks reuse

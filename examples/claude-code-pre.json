@@ -1,0 +1,9 @@
+{
+  "hook_event_name": "PreToolUse",
+  "session_id": "quickstart-session",
+  "tool_use_id": "quickstart-read",
+  "tool_name": "Read",
+  "tool_input": {"file_path": "/workspace/note.txt"},
+  "cwd": "/workspace",
+  "permission_mode": "default"
+}

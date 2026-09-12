@@ -1,5 +1,8 @@
 # Local trace capture and regression promotion
 
+The [offline quickstart](quickstart.md) verifies the synthetic demo through
+capture, replay and explicit promotion from an installed wheel.
+
 Capture is disabled by default. Enable it to retain action-level evidence from
 Claude Code, Codex, MCP stdio, or MCP HTTP, then turn a reviewed segment into an
 offline regression. Capture and promotion never upload data or run a tool.

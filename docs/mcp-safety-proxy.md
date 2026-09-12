@@ -1,5 +1,8 @@
 # MCP safety proxy
 
+The [offline quickstart](quickstart.md) verifies inspection, explicit semantics
+review, contract locking and a real stdio round trip from an installed wheel.
+
 Start with [inspection and semantics setup](mcp-semantics-setup.md) to obtain a
 reviewable local draft without granting trust to discovery metadata.
 
@@ -248,7 +251,7 @@ The proxy process necessarily launches and transports bytes to the configured up
 
 ## Current limitations
 
-- stdio only; Streamable HTTP is not proxied yet;
+- this entry point handles stdio; use `ordin-mcp-http` for the maintained [Streamable HTTP profile](mcp-http-proxy.md);
 - one upstream server process per proxy instance;
 - no built-in approval user interface;
 - no automatic trust derivation from `tools/list` metadata;

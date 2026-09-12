@@ -1,5 +1,9 @@
 # Inspect and configure MCP semantics
 
+For the complete fixture flow from an installed wheel, start with the
+[v0.3 quickstart](quickstart.md). This guide is the manual reference for
+reviewing and configuring real servers.
+
 The setup commands collect a server's tool contracts and create a local review
 worksheet. They never infer permissions from tool names, descriptions, or discovery
 hints. A generated semantics file starts with **zero trusted rules**; unknown tools

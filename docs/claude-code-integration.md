@@ -40,10 +40,11 @@ Claude Code hook behavior is documented upstream at <https://code.claude.com/doc
 Install Ordin from the repository or a built wheel, then verify the hook entry point exists:
 
 ```bash
-ordin-claude-hook
+ordin-claude-hook --help
 ```
 
-The command exits with usage information until a hook mode is supplied.
+Help exits successfully without reading hook input. The [offline quickstart](quickstart.md)
+verifies pre/post hooks and optional persistence from an installed wheel.
 
 ## Configure hooks
 
@@ -137,8 +138,8 @@ The native hook payload does not expose the current user intent or a bounded rec
 Observation persistence is disabled by default. To append redacted observations explicitly to a local JSONL file:
 
 ```bash
-mkdir -p .ordin
-export ORDIN_CLAUDE_OBSERVATIONS="$PWD/.ordin/claude-observations.jsonl"
+mkdir -p -m 700 "$HOME/.local/state/ordin"
+export ORDIN_CLAUDE_OBSERVATIONS="$HOME/.local/state/ordin/claude-observations.jsonl"
 ```
 
 The integration records bounded metadata such as runtime, hook event, tool name, permission mode, status, duration, and interruption state. It deliberately does **not** copy Claude Code `tool_response` or error text because either can contain source code, credentials, command output, or other sensitive data.
@@ -150,13 +151,17 @@ For failed Bash tool executions, the integration recognizes Claude Code's docume
 Decision audit persistence is also disabled by default. To opt in:
 
 ```bash
-mkdir -p .ordin
-export ORDIN_CLAUDE_AUDIT="$PWD/.ordin/claude-audit.jsonl"
+mkdir -p -m 700 "$HOME/.local/state/ordin"
+export ORDIN_CLAUDE_AUDIT="$HOME/.local/state/ordin/claude-audit.jsonl"
 ```
 
 This uses Ordin's existing `JsonlAuditSink`. Resource values, summaries, and action IDs remain redacted by default. Ordin never uploads this evidence.
 
 The directory must already exist. The integration does not create hidden storage directories or discover policy/audit locations automatically.
+
+For optional capture, set `ORDIN_CLAUDE_TRACE` to a separate private database.
+Raw actions require `ORDIN_CLAUDE_TRACE_RAW=1` and are unsafe to share. The
+[capture guide](trace-capture.md) explains inspection, sanitization and promotion.
 
 ## Python integration
 

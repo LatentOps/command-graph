@@ -5,6 +5,7 @@ Start with what you are trying to do. The implementation details are linked afte
 ## I want to install Ordin or use it from a terminal
 
 - [Installation](installation.md)
+- [Offline v0.3 quickstart](quickstart.md)
 - [Platform and integration compatibility](compatibility.md)
 - [Bare intent CLI](bare-intent-cli.md)
 - [Generic action review](action-review.md)
@@ -120,6 +121,7 @@ The safety benchmark has separate hard regression gates for false allows, critic
 - [Command packs](command-packs.md)
 - [Schema contracts](schema-contracts.md)
 - [Releasing Ordin](releasing.md)
+- [v0.3 release notes draft](releases/v0.3.0.md)
 - [Security and threat model](threat-model.md)
 - [Contributing guidelines](../CONTRIBUTING.md)
 

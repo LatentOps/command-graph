@@ -36,6 +36,9 @@ not share state or action IDs. Stopping the proxy discards its state.
 
 The proxy correlates terminal responses and attaches redacted observations before
 forwarding responses to the client. It limits in-flight tool requests to 32.
+It also refuses a proposal that would evict a still-pending action from history,
+including when denied proposals filled that history. Retry after a pending
+result is recorded; the bound is not enlarged and evidence is not dropped.
 `reset_session()` requires zero in-flight calls and does not reset the action-ID
 counter. Malformed state or expired observation linkage terminates forwarding
 conservatively. Tool-result text is never parsed into trusted observed effects.
@@ -70,7 +73,8 @@ configuration changed, pre-tool returns `deny`. It does not silently start over.
 An operator can explicitly reset after stopping outstanding tools by supplying a
 `SessionStart` payload to `ordin-claude-hook session-reset`. Reset also permits a
 reviewed configuration change. Lifecycle commands are no-ops while persistence
-is disabled. Ending a session intentionally removes its history; resuming an ended
+and trace capture are disabled. Trace-enabled lifecycle hooks still record a
+boundary even without persistent history. Ending a session intentionally removes its history; resuming an ended
 session starts a new bounded window.
 
 The store uses SQLite transactions to prevent lost updates between hook processes.
@@ -90,6 +94,13 @@ deletion reduces residual deleted content but is not a storage-device erasure
 guarantee. Native Windows private-file support is not claimed.
 
 ## Embedding and richer observations
+
+Codex uses the same store through `ORDIN_CODEX_STATE` and its installed
+start/pre/post/end hooks; see [Codex integration](codex-integration.md).
+MCP HTTP creates an isolated in-memory session for each negotiated downstream
+token; see [HTTP sessions](mcp-http-proxy.md). A transport/session identity change
+does not inherit another client's history. The [offline quickstart](quickstart.md)
+exercises persistence, temporal evidence and reset behavior from a wheel.
 
 ```python
 from ordin import AgentGate
@@ -112,7 +123,7 @@ engine and cannot erase a predicted effect or downgrade a decision.
 
 ## Validation
 
-The permanent integration evaluation includes 18 synthetic live-session controls
+The permanent integration evaluation includes synthetic live-session controls
 through the maintained integration methods. It reports temporal detections, false
 detections, observation linkage, isolation/reset failures, and core review versus
 additional in-memory integration latency. Persistence/concurrency/privacy and real
