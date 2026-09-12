@@ -1,0 +1,8 @@
+{
+  "schema_version": "ordin.tool_semantics.v1",
+  "registry_id": "http-fixture",
+  "version": "1",
+  "rules": [
+    {"id": "read", "kind": "mcp", "server": "fixture", "tool": "read_file", "effects": ["filesystem.read"], "resources": [{"argument": "path", "type": "path"}]}
+  ]
+}

@@ -278,7 +278,10 @@ class IntegrationEvaluationReport:
                 "safety_ask_rate": safety_payload["ask_rate"],
             },
             "coverage": {
-                "integrations": sorted({result.integration for result in self.workloads}),
+                "integrations": sorted(
+                    {result.integration for result in self.workloads}
+                    | set(self.conformance.integrations)
+                ),
                 "integration_action_kinds": dict(
                     sorted(Counter(result.action_kind for result in self.workloads).items())
                 ),

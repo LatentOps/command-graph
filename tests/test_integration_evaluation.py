@@ -50,7 +50,7 @@ def test_real_agent_evaluation_reports_required_scope_and_metrics():
     assert payload["scope"]["integration_workloads"] >= 7
     assert payload["scope"]["trajectories"] > 0
     assert payload["scope"]["safety_cases"] >= 34
-    assert payload["coverage"]["integrations"] == ["claude-code", "codex", "mcp-proxy"]
+    assert payload["coverage"]["integrations"] == ["claude-code", "codex", "mcp-http", "mcp-proxy"]
     assert payload["coverage"]["trajectory_action_kinds"]
     assert payload["coverage"]["safety_domains"]
     assert payload["latency_ms"]["core_review"]["p95"] >= 0.0

@@ -49,6 +49,7 @@ ordin = "ordin.entrypoint:main"
 ordin-claude-hook = "ordin.claude_code:main"
 ordin-codex-hook = "ordin.codex:main"
 ordin-mcp-proxy = "ordin.mcp_proxy:main"
+ordin-mcp-http = "ordin.mcp_http:main"
 
 [tool.setuptools]
 packages = ["ordin", "ordin.analyzers"]

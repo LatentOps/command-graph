@@ -46,6 +46,7 @@ The Python API reviews actions but never executes them.
 - [Codex hooks and plugin](codex-integration.md)
 - [Live integration sessions](integration-sessions.md)
 - [MCP safety proxy](mcp-safety-proxy.md)
+- [MCP Streamable HTTP proxy](mcp-http-proxy.md)
 - [MCP contract pinning](mcp-contract-pinning.md)
 - [MCP inspection and semantics setup](mcp-semantics-setup.md)
 - [Integration diagnostics](integration-troubleshooting.md)
