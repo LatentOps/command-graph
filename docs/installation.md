@@ -1,6 +1,11 @@
 # Installation
 
-Ordin is distributed directly from GitHub for now and installs one canonical console command: `ordin`.
+Ordin is distributed directly from GitHub. The current development version
+installs `ordin`, `ordin-claude-hook`, and `ordin-mcp-proxy`.
+
+The root README describes `main` (`0.2.0.dev0`). Use the development install below
+for its current APIs and integrations. The older `v0.1.0` tag predates the Claude
+Code hook and MCP proxy; use that tag's documentation when installing it.
 
 ## Install the current stable release
 

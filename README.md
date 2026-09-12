@@ -1,324 +1,222 @@
 # Ordin
 
-**Know what an action will do before it runs.**
+Review commands and tool calls before running them.
 
-Ordin is a local command-intelligence and pre-execution safety engine for developers and AI agents. It can find shell commands from natural-language intent, review proposed commands and generic actions before execution, and act as a deterministic gate between an agent and its runtime.
+Ordin is a Python library and CLI for developers and AI agents. It examines a
+proposed action, identifies effects such as file deletion or network access,
+and returns `allow`, `warn`, `ask`, or `block` with reasons. You can also describe
+a task in plain language to find a shell command for it.
 
-Core search and safety review are local-first. Ordin does not require a cloud service, upload command or action history, or execute agent actions on its own.
+The core runs locally, uses deterministic rules, and has no required runtime
+dependencies. It does not send commands, tool arguments, or history to a hosted
+service.
 
-## Install
+## Install and try it
 
-Ordin is distributed directly through GitHub for now.
+Use Python 3.10 or newer and Git. Ordin targets Linux; CI tests Python 3.10–3.13
+and checks installed CLI behavior on Debian and Fedora.
 
-Install the current stable release from its immutable `v0.1.0` tag:
+This README describes the development version on `main` (`0.2.0.dev0`). Install
+it in a virtual environment to use the APIs and integrations shown here:
 
 ```bash
-python -m pip install "git+https://github.com/LatentOps/ordin.git@v0.1.0"
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install "git+https://github.com/LatentOps/ordin.git@main"
 ordin doctor
 ```
 
-You can also install the validated wheel attached to the GitHub release:
+Review a command:
 
 ```bash
-python -m pip install https://github.com/LatentOps/ordin/releases/download/v0.1.0/ordin-0.1.0-py3-none-any.whl
+ordin check "git status --short"
 ```
 
-Install the current development tree directly from the repository:
-
-```bash
-python -m pip install "git+https://github.com/LatentOps/ordin.git"
+```text
+decision: allow
+risk: low
+- reads source-control state (git status)
 ```
 
-Or clone it:
+`check` reviews the quoted command without executing it. `doctor` validates
+Ordin's local command data and schemas.
+
+<details>
+<summary>Install the older tagged release instead</summary>
+
+The latest tagged release is [v0.1.0](https://github.com/LatentOps/ordin/releases/tag/v0.1.0):
 
 ```bash
-git clone https://github.com/LatentOps/ordin.git
-cd ordin
-python -m pip install .
+python -m pip install "git+https://github.com/LatentOps/ordin.git@v0.1.0"
 ```
 
-See [Installation](docs/installation.md) for development setup and optional semantic reranking.
+That release predates the Claude Code hook and MCP proxy. Use `main` for this
+guide, or follow the documentation at the release tag. The release also provides
+a wheel and source archive.
 
-## Four ways to use Ordin
+</details>
 
-### 1. Find the command you need
+See [installation](docs/installation.md) for other install options and optional
+semantic search dependencies.
 
-Describe the task instead of remembering the exact Linux command:
+## Find a command
+
+Describe what you want to do:
 
 ```bash
-ordin what is using port 3000
+ordin what is using port 3000 --limit 1
 ordin find files larger than 1gb
-ordin make file runnable
-```
-
-Or use the explicit search command:
-
-```bash
 ordin search "lookup dns for example.com" --limit 3
 ```
 
-Ordin uses deterministic lexical retrieval by default and can incorporate local command availability and Linux distribution signals.
+For the port query, Ordin suggests `lsof -i :3000`. Results include the command's
+purpose, examples, risk, and local availability. Ordin prints suggestions; you
+choose whether to run them.
 
-### 2. Review a command or generic action
+Search uses BM25 lexical ranking over curated command cards. The optional
+[semantic reranker](docs/semantic-reranking.md) works with an explicitly supplied
+local model and does not download one automatically.
+
+## Understand and enforce a decision
+
+The CLI is advisory by default: a completed review exits successfully even when
+its decision is `warn`, `ask`, or `block`. Use `--enforce` when a script or CI job
+needs a failing exit status:
 
 ```bash
-ordin check "git reset --hard HEAD~1"
+ordin check "git status --short" --json --enforce
 ```
 
-Example:
+| Decision | What it means | Default `AgentGate` result | Exit with `--enforce` |
+| --- | --- | --- | --- |
+| `allow` | Recognized behavior with no stronger finding | `execute` | `0` |
+| `warn` | Known behavior with elevated risk | `escalate` | `10` |
+| `ask` | Unknown semantics or an approval requirement | `escalate` | `20` |
+| `block` | A critical condition or explicit blocking policy | `deny` | `30` |
 
-```text
-decision: warn
-risk: high
-- changes local source-control state
-- can rewrite or discard source-control history
-```
+Invalid CLI input returns `2`. An explicit `--fail-on` threshold changes which
+decisions cause a nonzero exit. See [enforcement and exit codes](docs/enforcement.md)
+for threshold examples and the full exit-code contract.
 
-For richer shell review, provide intent and execution context:
+Provide intent and execution context when they matter:
 
 ```bash
 ordin review \
-  --intent "remove generated dependencies" \
-  --command "rm -rf node_modules" \
+  --command "git status --short" \
+  --intent "inspect repository state" \
   --cwd "$PWD" \
   --repo-root "$PWD" \
   --json
 ```
 
-Or review a versioned generic action:
+Reviews can combine shell parsing, command semantics, resource paths, local
+policy, and bounded action history. Unknown behavior remains uncertain.
+Caller-supplied policies can strengthen a decision but cannot weaken a stronger
+core finding.
 
-```bash
-cat examples/action.json | ordin action --stdin --json
-```
+## Use Ordin from Python
 
-Unknown commands and actions are not silently treated as safe.
-
-### 3. Add an explicit local policy
-
-Validate a data-only policy:
-
-```bash
-ordin policy validate examples/policy.json
-```
-
-Apply it to a generic action:
-
-```bash
-cat examples/action.json | ordin action --stdin --policy examples/policy.json --json
-```
-
-Policies match structured action kinds, operations, effects, resources, context, agent identity, intent state, and trajectory findings. They are explicit local JSON, cannot execute code, and can only preserve or strengthen the core safety requirement.
-
-See [Declarative action policies](docs/policies.md).
-
-### 4. Gate an AI agent before execution
+`AgentGate` translates a review into a runtime decision:
 
 ```python
 from ordin import AgentGate
 
-result = AgentGate().evaluate(
+decision = AgentGate().evaluate(
     "git status --short",
     intent="inspect repository state",
 )
 
-if result.may_execute:
-    # Execute through your own sandbox or tool runtime.
-    ...
-elif result.requires_approval:
-    # Ask a human or caller-owned approval service.
-    ...
-else:
-    # Reject the proposed action.
-    ...
+print(decision.disposition)  # execute
+print(decision.may_execute)  # True
 ```
 
-The runtime flow is deliberately small:
+Your runtime should execute the proposed action only when `may_execute` is true.
+It handles approval when `requires_approval` is true and rejects a denied action.
+The gate itself never runs the command.
 
-```text
-agent proposes action
-        |
-        v
-      Ordin
-        |
-        +--> execute
-        +--> escalate
-        +--> deny
-        |
-        v
-caller-owned tool / shell / sandbox
-```
+For generic actions, use `ActionEnvelope` and `AgentGate.evaluate_action()`.
+`ToolCallAdapter` and `MCPAdapter` preserve tool identity and arguments; trusted
+semantics match exact identities. See the [Python API](docs/python-api.md) and
+[tool adapters](docs/tool-and-mcp-adapters.md).
 
-`AgentGate` never runs the command. The integrating runtime owns execution, sandboxing, approval UI, retries, and trace persistence.
+## Connect an agent or shell
 
-Want a runnable path instead of API-only snippets? Start with the [integration starter kit](examples/integrations/README.md). It covers Python embedding, JSON/subprocess runtimes, the MCP proxy, shell/coding-agent gating, and non-interactive CI checks with offline smoke-tested examples.
+| Integration | Entry point | Guide |
+| --- | --- | --- |
+| Claude Code hooks | `ordin-claude-hook` | [Hook configuration and supported tools](docs/claude-code-integration.md) |
+| An MCP client and stdio server | `ordin-mcp-proxy` | [Proxy setup and tool semantics](docs/mcp-safety-proxy.md) |
+| Bash or Zsh | `ordin shell-init` and `orun` | [Reviewed shell execution](docs/shell-integration.md) |
+| Your own runtime | Python API or JSON CLI | [Runnable integration examples](examples/integrations/README.md) |
 
-See [Agent runtime integration](docs/agent-integration.md), [Generic action review](docs/action-review.md), and [Python API](docs/python-api.md).
+The MCP proxy reviews `tools/call` requests before forwarding them to its
+configured server. Unknown tools require approval by default. Claude Code hooks
+map decisions to the runtime's permission flow and can record post-tool
+observations.
 
-## Optional shell gate
-
-Shell integration is explicit and reversible. Ordin does not edit shell startup files automatically.
-
-For Bash:
+For a Bash session, enable the shell wrapper explicitly:
 
 ```bash
 source <(ordin shell-init bash)
 orun 'git status --short'
-orun 'rm -rf ./build'
 ```
 
-For Zsh:
+`orun` executes a command after its review flow permits it. The MCP proxy launches
+the configured server; that server executes its tools.
+The integrating runtime remains responsible for credentials, sandboxing, and
+approval UI. Ordin does not edit shell startup files automatically.
 
-```zsh
-source <(ordin shell-init zsh)
-```
+## JSON, policy, and audit evidence
 
-`orun` reviews the exact command first and only executes according to the shell integration's review flow. See [Shell integration](docs/shell-integration.md).
-
-## What Ordin evaluates
-
-A review can combine:
-
-1. shell-aware parsing of compound commands, pipelines, substitutions, groups, and nested shell payloads;
-2. semantic analyzers for high-value command families;
-3. typed effects such as filesystem deletion, network upload, package installation, source-control mutation, privilege escalation, and container changes;
-4. structured resources such as paths, URLs, packages, and later tool-specific targets;
-5. exact rules for dangerous combinations;
-6. optional execution context such as working directory, repository boundary, effective UID, shell, and agent identity;
-7. bounded recent-action traces for multi-step patterns;
-8. explicit caller-owned declarative policy.
-
-The result uses four review decisions:
-
-| Decision | Meaning |
-| --- | --- |
-| `allow` | Known low-risk behavior with no stronger finding. |
-| `warn` | Known elevated behavior that should be reviewed. |
-| `ask` | Ordin cannot establish enough confidence or policy requires approval. |
-| `block` | A known critical condition or explicit blocking policy was detected. |
-
-Agent integrations can then apply a separate `ReviewPolicy` to decide what proceeds automatically and what requires escalation.
-
-Generic action reviews also expose deterministic execution-capability recommendations and structured decision provenance. Callers may optionally attach a local redacted JSONL audit sink; audit persistence is disabled by default and Ordin never uploads the evidence. See [Execution capability profiles and observations](docs/execution-evidence.md) and [Decision provenance and local audit evidence](docs/audit-and-provenance.md).
-
-## Machine-readable review
-
-Non-Python runtimes can send versioned requests through stdin:
+From a repository checkout, try the versioned example requests:
 
 ```bash
-cat examples/review.json | ordin review --stdin --json
-cat examples/action.json | ordin action --stdin --json
+ordin review --stdin --json < examples/review.json
+ordin action --stdin --json < examples/action.json
+ordin policy validate examples/policy.json
+ordin action --stdin --policy examples/policy.json --json < examples/action.json
 ```
 
-Public payloads use versioned Ordin schemas, including `ordin.review_request.v1`, `ordin.action_envelope.v1`, `ordin.action_review.v1`, and `ordin.policy_set.v1`.
+Public schemas live in [schemas/](schemas/). The [policy guide](docs/policies.md)
+explains action and context selectors; [temporal policies](docs/temporal-policies.md)
+cover patterns across multiple actions.
 
-Schemas live in [`schemas/`](schemas/) and are validated by `ordin doctor` and CI.
+Reviews expose structured provenance and advisory execution-capability profiles.
+Local audit persistence is optional and disabled by default. Read
+[audit and provenance](docs/audit-and-provenance.md) and
+[execution observations](docs/execution-evidence.md) for the evidence contracts
+and redaction behavior.
 
-## Command intelligence
+## What the tests establish
 
-Search is deterministic by default. Ordin combines BM25-style lexical scoring with intent, aliases, examples, templates, command availability, and Linux distribution compatibility.
+CI runs the test suite on Python 3.10–3.13, validates a built wheel, checks Linux
+installation, and runs safety, trajectory, regression, and integration gates.
+The [local evaluation report](docs/integration-evaluation.md) includes its
+workloads, revision, environment, and measurement limits.
 
-```bash
-ordin search "find large files" --json
-ordin explain find
-ordin packs
-```
+These checks cover finite fixtures and recognized semantics. An `allow` decision
+is not proof that an arbitrary action is safe. Keep execution permissions and
+sandbox controls in the runtime, and supply the context and history needed for
+the review. Local adapter timing does not measure a complete live-agent session.
 
-An optional local semantic reranker can reorder only a bounded deterministic candidate set. It is not part of the default dependency set and Ordin does not automatically download a model.
-
-Install semantic support from a repository checkout:
+## Contribute
 
 ```bash
 git clone https://github.com/LatentOps/ordin.git
 cd ordin
-python -m pip install ".[semantic]"
-```
-
-See [Deterministic ranking](docs/deterministic-ranking.md), [Availability and platforms](docs/availability-and-platforms.md), and [Semantic reranking](docs/semantic-reranking.md).
-
-## Typed effect graph
-
-Curated command metadata can express:
-
-```text
-intent -> command
-command -> subcommand
-command/subcommand -> flag
-command/subcommand/flag -> effect
-effect -> resource
-command -> safer alternative
-command -> required privilege
-```
-
-The graph is built locally in memory and does not require a graph database.
-
-```bash
-ordin graph
-ordin graph --json
-```
-
-See [Effect graph](docs/effect-graph.md) and [Schema contracts](docs/schema-contracts.md).
-
-## Documentation by goal
-
-| I want to... | Start here |
-| --- | --- |
-| install or use the CLI | [Installation](docs/installation.md), [Bare intent CLI](docs/bare-intent-cli.md) |
-| integrate Ordin into an agent/runtime | [Integration starter kit](examples/integrations/README.md), [Agent runtime integration](docs/agent-integration.md) |
-| review generic actions | [Generic action review](docs/action-review.md) |
-| define local policy | [Declarative action policies](docs/policies.md) |
-| embed Ordin in Python | [Python API](docs/python-api.md) |
-| gate an AI agent | [Agent runtime integration](docs/agent-integration.md) |
-| enable reviewed shell execution | [Shell integration](docs/shell-integration.md) |
-| understand safety behavior | [Architecture](docs/architecture.md), [Context-aware review](docs/context-aware-review.md), [Trace-aware review](docs/trace-aware-review.md) |
-| inspect provenance or keep a local audit trail | [Decision provenance and local audit evidence](docs/audit-and-provenance.md) |
-| extend command knowledge | [Command packs](docs/command-packs.md), [Semantic analyzers](docs/semantic-analyzers.md), [Effect graph](docs/effect-graph.md) |
-| contribute | [Contributing](CONTRIBUTING.md), [Development workflow](docs/development-workflow.md) |
-
-See the full [documentation index](docs/README.md).
-
-## Development
-
-```bash
 python -m pip install -e ".[dev]"
 pre-commit install
 pre-commit run --all-files
 pytest -q
 ```
 
-The shared pre-commit gate covers Ruff lint and formatting, staged mypy checks, compilation, `ordin doctor`, and repository namespace integrity. Pull requests additionally run Python 3.10 through 3.13, built-wheel validation, and isolated Debian/Fedora installation smoke tests.
+Start with [CONTRIBUTING.md](CONTRIBUTING.md). To extend command knowledge, read
+[command packs](docs/command-packs.md) and [semantic analyzers](docs/semantic-analyzers.md).
+For debugging and regression work, see [integration diagnostics](docs/integration-troubleshooting.md)
+and [regression promotion](docs/regression-promotion.md).
 
-## Repository layout
-
-```text
-ordin/              library, CLI, analyzers, action/policy engine, packaged resources
-data/               curated command cards, effects, packs, and risk rules
-schemas/            public JSON Schema contracts
-benchmarks/         deterministic search-quality fixtures
-examples/           human and agent integration examples
-docs/               usage, architecture, safety, and development documentation
-scripts/            repository integrity tooling
-tests/              unit, integration, packaging, and safety tests
-.github/workflows/  CI and release pipelines
-```
-
-## Design boundaries
-
-Ordin intentionally does not:
-
-- execute commands or generic actions received through review APIs;
-- become a general agent framework;
-- require a hosted service for core behavior;
-- upload shell history, command text, or action payloads;
-- automatically fetch remote policy;
-- generate arbitrary shell programs from free-form prompts;
-- treat unclassified behavior as safe.
-
-## Release
-
-Current public release: [Ordin v0.1.0](https://github.com/LatentOps/ordin/releases/tag/v0.1.0).
-
-Future version tags are validated and published as GitHub Releases with wheel and source-distribution assets.
+The [documentation index](docs/README.md) links to the architecture, examples,
+and detailed API contracts.
 
 ## License
 
-Ordin is licensed under the Apache License 2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
+Apache License 2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
