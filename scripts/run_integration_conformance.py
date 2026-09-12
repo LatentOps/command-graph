@@ -12,12 +12,17 @@ def _parser() -> argparse.ArgumentParser:
         description="Run the shared Ordin adapter integration conformance suite."
     )
     parser.add_argument("--json-out", type=Path)
+    parser.add_argument(
+        "--captured-fixtures",
+        type=Path,
+        default=Path(__file__).resolve().parents[1] / "benchmarks" / "captured_conformance.jsonl",
+    )
     return parser
 
 
 def main() -> int:
     args = _parser().parse_args()
-    report = run_integration_conformance()
+    report = run_integration_conformance(capture_path=args.captured_fixtures)
     payload = report.as_dict()
 
     print(f"Conformance checks        {payload['passed']} / {payload['checks']}")

@@ -7,6 +7,7 @@ from .cli import main as command_main
 
 
 EXPLICIT_COMMANDS = {
+    "trace",
     "mcp",
     "semantics",
     "contracts",

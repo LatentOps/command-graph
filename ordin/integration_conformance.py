@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from dataclasses import dataclass
 from typing import Any, Callable
 
@@ -439,7 +441,22 @@ def _mcp_checks() -> list[ConformanceCheck]:
     return checks
 
 
-def run_integration_conformance() -> IntegrationConformanceReport:
+def run_integration_conformance(
+    *, capture_path: str | Path | None = None
+) -> IntegrationConformanceReport:
+    captured: list[ConformanceCheck] = []
+    if capture_path is not None:
+        from .trace_replay import load_capture_conformance
+
+        for result in load_capture_conformance(capture_path):
+            captured.append(
+                ConformanceCheck(
+                    result["integration"],
+                    result["id"],
+                    result["ok"],
+                    "pass" if result["ok"] else "; ".join(result["errors"]),
+                )
+            )
     return IntegrationConformanceReport(
         checks=tuple(
             [
@@ -448,6 +465,7 @@ def run_integration_conformance() -> IntegrationConformanceReport:
                 *_contract_checks(),
                 *_codex_checks(),
                 *_http_checks(),
+                *captured,
             ]
         ),
     )

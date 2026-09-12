@@ -19,6 +19,7 @@ from .context import ExecutionContext
 from .execution import ActionObservation
 from .session import IntegrationSession, SessionIdentity, SqliteSessionStore
 from .tool_calls import ToolResourceBinding, ToolSemanticRule, ToolSemanticsRegistry
+from .trace_capture import TraceRecorder, attach_trace, raw_capture_flag
 
 
 CLAUDE_CODE_RUNTIME = "claude-code"
@@ -150,10 +151,23 @@ def _default_gate() -> AgentGate:
 def build_claude_code_integration(
     *,
     audit_path: str | Path | None = None,
+    trace_path: str | Path | None = None,
+    raw_local: bool = False,
 ) -> "ClaudeCodeIntegration":
     audit = JsonlAuditSink(audit_path) if audit_path is not None else None
     ordin = Ordin(tool_semantics=claude_code_tool_semantics(), audit=audit)
-    return ClaudeCodeIntegration(gate=AgentGate(ordin))
+    ordin, recorder = attach_trace(
+        ordin, trace_path, integration=CLAUDE_CODE_RUNTIME, raw_local=raw_local
+    )
+    return ClaudeCodeIntegration(gate=AgentGate(ordin), trace=recorder)
+
+
+def _configured() -> "ClaudeCodeIntegration":
+    return build_claude_code_integration(
+        audit_path=os.environ.get(CLAUDE_CODE_AUDIT_ENV) or None,
+        trace_path=os.environ.get("ORDIN_CLAUDE_TRACE") or None,
+        raw_local=raw_capture_flag(os.environ.get("ORDIN_CLAUDE_TRACE_RAW", "0")),
+    )
 
 
 @dataclass(frozen=True)
@@ -167,6 +181,7 @@ class ClaudeCodeIntegration:
     gate: AgentGate = field(default_factory=_default_gate)
     adapter: ToolCallAdapter = field(default_factory=_default_adapter)
     session: IntegrationSession | None = None
+    trace: TraceRecorder | None = None
 
     def _check_session(self, session_id: str) -> None:
         if self.session is not None:
@@ -311,6 +326,8 @@ class ClaudeCodeIntegration:
             effects=observed_effects,
             metadata=metadata,
         )
+        if self.trace is not None:
+            self.trace.record_observation(observation, session_key=_identity_digest(session_id))
         if self.session is not None:
             self.session.observe(observation)
         return observation
@@ -429,12 +446,19 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 1
     if mode.startswith("session-"):
         # Lifecycle hooks are safe to install before opting into persistence.
+        try:
+            integration = _configured()
+            if integration.trace is not None:
+                integration.trace.record_boundary(
+                    _identity_digest(_required_text(payload.get("session_id"), name="session_id"))
+                )
+        except (OSError, ValueError):
+            return 1
         return 0
 
     if mode == "pre":
-        audit_path = os.environ.get(CLAUDE_CODE_AUDIT_ENV) or None
         try:
-            integration = build_claude_code_integration(audit_path=audit_path)
+            integration = _configured()
             output = integration.pre_tool_output(payload)
         except (OSError, ValueError) as exc:
             output = _pre_tool_permission("deny", f"Ordin integration error: {exc}")
@@ -450,7 +474,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 1
 
     try:
-        observation = ClaudeCodeIntegration().observation_from_hook(payload)
+        observation = _configured().observation_from_hook(payload)
         observation_path = os.environ.get(CLAUDE_CODE_OBSERVATIONS_ENV)
         if observation_path:
             _append_private_jsonl(observation_path, observation.as_dict())
@@ -474,9 +498,8 @@ def _stateful_hook(mode: str, payload: Mapping[str, Any], path: str) -> int:
     identity = SessionIdentity(
         CLAUDE_CODE_RUNTIME, _required_text(payload.get("session_id"), name="session_id")
     )
-    gate = build_claude_code_integration(
-        audit_path=os.environ.get(CLAUDE_CODE_AUDIT_ENV) or None
-    ).gate
+    configured = _configured()
+    gate = configured.gate
     output = None
     with SqliteSessionStore(path).transaction(
         identity,
@@ -484,7 +507,9 @@ def _stateful_hook(mode: str, payload: Mapping[str, Any], path: str) -> int:
         create=mode in {"session-start", "session-reset"},
         reset=mode == "session-reset",
     ) as session:
-        integration = ClaudeCodeIntegration(gate=gate, session=session)
+        integration = ClaudeCodeIntegration(gate=gate, session=session, trace=configured.trace)
+        if mode.startswith("session-") and integration.trace is not None:
+            integration.trace.record_boundary(_identity_digest(identity.session_id))
         if mode == "pre":
             # Let invalid input escape the transaction so it cannot commit.
             decision = integration.review_pre_tool(payload)

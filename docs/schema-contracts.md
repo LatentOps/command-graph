@@ -21,6 +21,8 @@ Ordin publishes machine-readable JSON Schema contracts for its stable JSON surfa
 - `temporal-policy-set.v1.schema.json`
 - `tool-semantics.v1.schema.json`
 - `action-trace.v1.schema.json`
+- `trace-event.v1.schema.json` — bounded private capture records
+- `trace-candidate.v1.schema.json` — reviewed semantic reconstructions using existing regression contracts
 - `risk-rules.v1.schema.json`
 - `effect-catalog.v1.schema.json`
 - `effect-graph.v1.schema.json`

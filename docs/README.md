@@ -91,6 +91,7 @@ its configured server. The runtime owns sandboxing, credentials, and approvals.
 - [Agent trajectory corpus](agent-trajectory-corpus.md)
 - [Failure replay](failure-regressions.md)
 - [Extended regression promotion](regression-promotion.md)
+- [Local trace capture and reviewed promotion](trace-capture.md)
 - [Safety benchmark and adversarial fuzzing](safety-benchmark.md)
 - [Search quality benchmark](search-quality-benchmark.md)
 

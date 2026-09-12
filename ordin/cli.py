@@ -297,6 +297,11 @@ def _review_exit(args: argparse.Namespace, decision: str) -> int:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    trace_args = list(sys.argv[1:] if argv is None else argv)
+    if trace_args and trace_args[0] == "trace":
+        from .trace_cli import main as trace_main
+
+        return trace_main(trace_args[1:])
     raw_args = list(sys.argv[1:] if argv is None else argv)
     if raw_args and raw_args[0] in {"mcp", "semantics"}:
         from .mcp_setup_cli import mcp_main, semantics_main
@@ -314,6 +319,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     subparsers.add_parser("mcp", help="Inspect MCP tool contracts without calling tools")
     subparsers.add_parser("semantics", help="Scaffold, validate, and pin reviewed MCP semantics")
     subparsers.add_parser("contracts", help="Validate and compare reviewed MCP contract pins")
+    subparsers.add_parser(
+        "trace", help="Capture, sanitize, replay, and promote local action evidence"
+    )
 
     search_parser = subparsers.add_parser("search", help="Search commands by intent.")
     search_parser.add_argument("query")

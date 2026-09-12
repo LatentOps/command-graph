@@ -215,8 +215,8 @@ pytest -q
 
 Start with [CONTRIBUTING.md](CONTRIBUTING.md). To extend command knowledge, read
 [command packs](docs/command-packs.md) and [semantic analyzers](docs/semantic-analyzers.md).
-For debugging and regression work, see [integration diagnostics](docs/integration-troubleshooting.md)
-and [regression promotion](docs/regression-promotion.md).
+For debugging and regression work, see [integration diagnostics](docs/integration-troubleshooting.md),
+[local trace capture](docs/trace-capture.md), and [regression promotion](docs/regression-promotion.md).
 
 The [documentation index](docs/README.md) links to the architecture, examples,
 and detailed API contracts.
