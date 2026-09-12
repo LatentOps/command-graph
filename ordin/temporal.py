@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from ._json_contracts import load_configuration
+
 import hashlib
 import json
 from dataclasses import dataclass
@@ -101,6 +103,12 @@ class TemporalRule:
     enabled: bool = True
 
     def __post_init__(self) -> None:
+        if not isinstance(self.within_actions, int) or isinstance(self.within_actions, bool):
+            raise ValueError("temporal within_actions must be an integer")
+        if not isinstance(self.enabled, bool):
+            raise ValueError("temporal enabled flag must be boolean")
+        if any(not isinstance(predicate, TemporalPredicate) for predicate in self.pattern):
+            raise ValueError("temporal pattern requires typed predicates")
         if not self.id or len(self.id) > 128:
             raise ValueError("temporal rule id must contain 1 to 128 characters")
         if self.risk not in VALID_TEMPORAL_RISKS:
@@ -387,23 +395,9 @@ def default_temporal_policy() -> CompiledTemporalPolicySet:
 
 
 def load_temporal_policy(path: str | Path) -> CompiledTemporalPolicySet:
-    policy_path = Path(path)
-    try:
-        size = policy_path.stat().st_size
-    except OSError as exc:
-        raise ValueError(f"cannot read temporal policy file {policy_path}: {exc}") from exc
-    if size > MAX_TEMPORAL_POLICY_FILE_BYTES:
-        raise ValueError(
-            f"temporal policy file exceeds maximum size {MAX_TEMPORAL_POLICY_FILE_BYTES} bytes"
-        )
-    try:
-        payload = json.loads(policy_path.read_text(encoding="utf-8"))
-    except OSError as exc:
-        raise ValueError(f"cannot read temporal policy file {policy_path}: {exc}") from exc
-    except json.JSONDecodeError as exc:
-        raise ValueError(f"invalid temporal policy JSON: {exc.msg}") from exc
-    if not isinstance(payload, Mapping):
-        raise ValueError("temporal policy file must contain a JSON object")
+    payload = load_configuration(
+        path, label="temporal policy file", maximum=MAX_TEMPORAL_POLICY_FILE_BYTES
+    )
     from .schema import validate_named_schema
 
     errors = validate_named_schema("temporal_policy_set", dict(payload))

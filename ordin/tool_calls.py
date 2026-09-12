@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from ._json_contracts import load_configuration
+
 import json
 from dataclasses import dataclass
 from functools import lru_cache
@@ -300,24 +302,9 @@ def compile_tool_semantics(registry: ToolSemanticsRegistry) -> CompiledToolSeman
 
 
 def load_tool_semantics(path: str | Path) -> CompiledToolSemanticsRegistry:
-    registry_path = Path(path)
-    try:
-        size = registry_path.stat().st_size
-    except OSError as exc:
-        raise ValueError(f"cannot read tool semantics {registry_path}: {exc}") from exc
-    if size > MAX_TOOL_SEMANTICS_FILE_BYTES:
-        raise ValueError(
-            f"tool semantics file exceeds maximum size {MAX_TOOL_SEMANTICS_FILE_BYTES} bytes"
-        )
-    try:
-        payload = json.loads(registry_path.read_text(encoding="utf-8"))
-    except OSError as exc:
-        raise ValueError(f"cannot read tool semantics {registry_path}: {exc}") from exc
-    except json.JSONDecodeError as exc:
-        raise ValueError(f"invalid tool semantics JSON: {exc.msg}") from exc
-    if not isinstance(payload, Mapping):
-        raise ValueError("tool semantics file must contain a JSON object")
-
+    payload = load_configuration(
+        path, label="tool semantics file", maximum=MAX_TOOL_SEMANTICS_FILE_BYTES
+    )
     from .schema import validate_named_schema
 
     errors = validate_named_schema("tool_semantics", dict(payload))

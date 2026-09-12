@@ -49,6 +49,7 @@ repos:
           ordin/contracts_cli.py
           ordin/session.py
           ordin/_private_storage.py
+          ordin/_json_contracts.py
           ordin/trace_capture.py
           ordin/trace_replay.py
           ordin/trace_cli.py
