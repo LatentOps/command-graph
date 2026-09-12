@@ -56,6 +56,13 @@ def test_execution_context_resolves_paths_without_ambient_state():
     assert ExecutionContext().resolve_path("./build") is None
 
 
+def test_relative_path_has_unknown_repository_membership():
+    context = ExecutionContext(cwd="/repo", repo_root="/repo")
+    assert context.path_within_repo("relative/path") is None
+    assert context.path_within_repo("") is None
+    assert ExecutionContext(repo_root=".").path_within_repo("/repo/path") is None
+
+
 def test_filesystem_analyzer_receives_context_and_resolves_target():
     analysis = analyze_tokens(
         shell_tokens("rm -rf ./build"),

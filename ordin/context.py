@@ -75,7 +75,7 @@ class ExecutionContext:
         return posixpath.normpath(posixpath.join(self.cwd, target))
 
     def path_within_repo(self, path: str) -> bool | None:
-        if not self.repo_root or not posixpath.isabs(self.repo_root):
+        if not self.repo_root or not posixpath.isabs(self.repo_root) or not posixpath.isabs(path):
             return None
         normalized_path = posixpath.normpath(path)
         normalized_root = posixpath.normpath(self.repo_root)

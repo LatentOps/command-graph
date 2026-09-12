@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
+import posixpath
 import re
 from dataclasses import dataclass, field, replace
 from functools import lru_cache
@@ -90,6 +90,12 @@ class ActionPolicyCondition:
     privileged: bool | None = None
     intent: IntentState | None = None
     trajectory_any: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        for prefix in self.cwd_prefixes:
+            _validate_text(prefix, "policy cwd prefix", MAX_MATCH_VALUE_LENGTH)
+            if not posixpath.isabs(prefix):
+                raise ValueError("policy cwd prefixes require absolute POSIX paths")
 
     @classmethod
     def from_dict(cls, payload: Mapping[str, Any]) -> "ActionPolicyCondition":
@@ -594,16 +600,18 @@ def _repo_scope(review: ActionReview) -> RepoScope:
     context = review.action.context
     if context is None or not context.cwd or not context.repo_root:
         return "unknown"
-    return "inside" if _path_within_prefix(context.cwd, context.repo_root) else "outside"
+    inside = context.path_within_repo(context.cwd)
+    if inside is None:
+        return "unknown"
+    return "inside" if inside else "outside"
 
 
 def _path_within_prefix(value: str, prefix: str) -> bool:
-    try:
-        normalized_value = os.path.abspath(os.path.normpath(value))
-        normalized_prefix = os.path.abspath(os.path.normpath(prefix))
-        return os.path.commonpath((normalized_value, normalized_prefix)) == normalized_prefix
-    except (OSError, ValueError):
+    if not posixpath.isabs(value) or not posixpath.isabs(prefix):
         return False
+    normalized_value = posixpath.normpath(value)
+    normalized_prefix = posixpath.normpath(prefix)
+    return posixpath.commonpath((normalized_value, normalized_prefix)) == normalized_prefix
 
 
 def _string_list(payload: Mapping[str, Any], key: str) -> tuple[str, ...]:
