@@ -55,6 +55,16 @@ report records its evaluated revision, Python/platform/CPU environment, Ordin
 version, policy, and timing sample counts. Re-running on another machine may
 change latency.
 
+The checked-in [sample report](reports/integration-evaluation.md) and
+[JSON results](reports/integration-evaluation.json) come from the successful
+[CI evaluation run](https://github.com/LatentOps/ordin/actions/runs/34665599247).
+They describe that recorded revision and runner, rather than the reader's
+current environment. This sample contains seven integration workloads,
+eleven trajectories, and thirty-four safety cases, with zero fixture decision
+errors. The two applicable synthetic observations link to their reviewed
+actions. These counts do not establish production prevalence or live-runtime
+performance.
+
 ## Interpretation and remaining scope
 
 Zero failures on these finite fixtures does not estimate production safety or

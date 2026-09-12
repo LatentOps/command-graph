@@ -49,6 +49,8 @@ jobs:
         run: python scripts/run_safety_benchmark.py --json-out safety-benchmark-report.json
       - name: Replay real-agent trajectory corpus
         run: python scripts/run_trajectory_corpus.py --json-out agent-trajectory-report.json
+      - name: Replay promoted integration regressions
+        run: python scripts/replay_regression.py --json-out regression-replay-report.json
       - name: Run real-agent integration evaluation
         run: >-
           python scripts/run_integration_evaluation.py
@@ -62,6 +64,7 @@ jobs:
           path: |
             safety-benchmark-report.json
             agent-trajectory-report.json
+            regression-replay-report.json
             integration-evaluation-report.json
             integration-evaluation-report.md
           if-no-files-found: error

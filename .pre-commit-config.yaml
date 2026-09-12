@@ -25,6 +25,7 @@ repos:
           ordin/safety_benchmark.py
           ordin/trajectory_corpus.py
           ordin/regression_replay.py
+          ordin/regression_promotion.py
           ordin/integration_conformance.py
           ordin/integration_evaluation.py
           ordin/diagnostics.py
