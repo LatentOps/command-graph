@@ -478,6 +478,24 @@ def test_slow_drip_upstream_cannot_extend_absolute_timeout():
         assert _request(server, _call(2), token=token)[0] == 409
 
 
+def test_stream_deadline_is_checked_after_buffered_read_even_before_timer_fires(monkeypatch):
+    import io
+    from unittest.mock import Mock
+    from ordin.mcp_http import _MCPHTTPHandler
+
+    handler = object.__new__(_MCPHTTPHandler)
+    handler._upstream_timed_out = threading.Event()
+    handler._upstream_expires_at = 10.0
+    handler.wfile = io.BytesIO()
+    times = iter([9.0, 10.0])
+    monkeypatch.setattr("ordin.mcp_http.time.monotonic", lambda: next(times))
+    response = Mock()
+    response.readline.return_value = b"retry: 1000\n\n"
+    with pytest.raises(TimeoutError):
+        handler._stream(response, Mock(), request_id=1)
+    assert handler.wfile.getvalue() == b""
+
+
 def test_initialization_can_resume_before_tool_calls_are_allowed():
     with _upstream("init-resume") as (url, state), _proxy(url) as server:
         token = _initialize(server)
