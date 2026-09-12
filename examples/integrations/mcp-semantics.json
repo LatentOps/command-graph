@@ -1,0 +1,22 @@
+{
+  "schema_version": "ordin.tool_semantics.v1",
+  "registry_id": "starter-kit-mcp",
+  "version": "1",
+  "rules": [
+    {
+      "id": "starter-read-note",
+      "kind": "mcp",
+      "server": "starter-kit",
+      "tool": "read_note",
+      "effects": [
+        "filesystem.read"
+      ],
+      "resources": [
+        {
+          "argument": "path",
+          "type": "path"
+        }
+      ]
+    }
+  ]
+}

@@ -2,6 +2,8 @@
 
 Ordin can sit between an agent's proposed shell action and the caller-controlled execution layer.
 
+For runnable, offline-tested examples across Python embedding, JSON/subprocess runtimes, MCP, shell/coding-agent gating, and CI, start with the [integration starter kit](../examples/integrations/README.md).
+
 ```text
 agent proposes command
         |
@@ -126,6 +128,12 @@ Ordin includes a maintained, dependency-free Claude Code hook integration that t
 
 See [Claude Code integration](claude-code-integration.md) for setup, supported tools, local audit/observation options, and the safety boundary.
 
+## MCP transport integration
+
+For clients that should gain Ordin safety review without embedding Python, the local stdio proxy intercepts `tools/call` before execution while forwarding unrelated MCP JSON-RPC unchanged.
+
+See [MCP safety proxy](mcp-safety-proxy.md) and the [offline starter fixture](../examples/integrations/README.md#3-mcp-proxy).
+
 ## Design boundary
 
 Ordin is not an agent framework, shell executor, sandbox, or approval service. It provides deterministic local command intelligence and review. The integrating runtime owns:
@@ -137,4 +145,4 @@ Ordin is not an agent framework, shell executor, sandbox, or approval service. I
 - action-history persistence;
 - retries and recovery.
 
-See [`examples/agent_gate.py`](../examples/agent_gate.py) for a complete minimal example and [`python-api.md`](python-api.md) for the lower-level API.
+See the [integration starter kit](../examples/integrations/README.md), [`examples/agent_gate.py`](../examples/agent_gate.py), and [`python-api.md`](python-api.md) for maintained starting points.

@@ -150,6 +150,8 @@ caller-owned tool / shell / sandbox
 
 `AgentGate` never runs the command. The integrating runtime owns execution, sandboxing, approval UI, retries, and trace persistence.
 
+Want a runnable path instead of API-only snippets? Start with the [integration starter kit](examples/integrations/README.md). It covers Python embedding, JSON/subprocess runtimes, the MCP proxy, shell/coding-agent gating, and non-interactive CI checks with offline smoke-tested examples.
+
 See [Agent runtime integration](docs/agent-integration.md), [Generic action review](docs/action-review.md), and [Python API](docs/python-api.md).
 
 ## Optional shell gate
@@ -261,6 +263,7 @@ See [Effect graph](docs/effect-graph.md) and [Schema contracts](docs/schema-cont
 | I want to... | Start here |
 | --- | --- |
 | install or use the CLI | [Installation](docs/installation.md), [Bare intent CLI](docs/bare-intent-cli.md) |
+| integrate Ordin into an agent/runtime | [Integration starter kit](examples/integrations/README.md), [Agent runtime integration](docs/agent-integration.md) |
 | review generic actions | [Generic action review](docs/action-review.md) |
 | define local policy | [Declarative action policies](docs/policies.md) |
 | embed Ordin in Python | [Python API](docs/python-api.md) |

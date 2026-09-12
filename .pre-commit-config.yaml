@@ -6,14 +6,14 @@ repos:
     hooks:
       - id: ruff-lint
         name: Ruff lint
-        entry: python -m ruff check ordin tests scripts
+        entry: python -m ruff check ordin tests scripts examples
         language: system
         pass_filenames: false
         always_run: true
 
       - id: ruff-format
         name: Ruff format check
-        entry: python -m ruff format --check ordin tests scripts
+        entry: python -m ruff format --check ordin tests scripts examples
         language: system
         pass_filenames: false
         always_run: true
@@ -48,7 +48,7 @@ repos:
 
       - id: compile
         name: Compile Python sources
-        entry: python -m compileall -q ordin scripts
+        entry: python -m compileall -q ordin scripts examples
         language: system
         pass_filenames: false
         always_run: true
