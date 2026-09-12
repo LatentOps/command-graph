@@ -208,10 +208,15 @@ def test_relative_context_never_uses_the_reviewer_working_directory(tmp_path, mo
             id="unknown", decision="block", when=ActionPolicyCondition(repo_scope="unknown")
         )
     )
+    ordin = Ordin(action_policy=policy)
     for directory in (tmp_path, tmp_path / "nested"):
         directory.mkdir(exist_ok=True)
         monkeypatch.chdir(directory)
-        result = policy.apply(_review(context=ExecutionContext(cwd="src", repo_root=".")))
+        result = ordin.review_action(
+            ActionEnvelope.shell(
+                "git status --short", context=ExecutionContext(cwd="src", repo_root=".")
+            )
+        )
         assert result.decision == "block"
 
 
