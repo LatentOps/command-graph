@@ -67,6 +67,54 @@ def test_malformed_tool_result_cannot_be_recorded_as_success(result):
     with pytest.raises(ValueError, match="result"):
         proxy.observe_server_message({"jsonrpc": "2.0", "id": 1, "result": result})
     assert proxy.session.snapshot()["observations"]["observations"] == []
+    assert proxy.pending_count == 1
+    assert not proxy.process_client_message(_call(1)).forward
+    observation = proxy.observe_server_message({"jsonrpc": "2.0", "id": 1, "result": {}})
+    assert observation is not None
+    assert proxy.pending_count == 0
+
+
+def test_invalid_observation_evidence_keeps_request_reserved():
+    proxy = MCPStdioSafetyProxy(
+        server_id="fixture", gate=AgentGate(Ordin(tool_semantics=_read_semantics()))
+    )
+    original = proxy.process_client_message(_call())
+    before = proxy.session.snapshot()
+    response = {"jsonrpc": "2.0", "id": 1, "result": {}}
+    with pytest.raises(ValueError, match="effect"):
+        proxy.observe_server_message(response, observed_effects=("invalid effect",))
+    assert proxy.pending_count == 1
+    assert proxy.session.snapshot() == before
+    assert not proxy.process_client_message(_call()).forward
+    accepted = proxy.observe_server_message(response, observed_effects=("filesystem.read",))
+    assert accepted.action_id == original.action_id
+    assert proxy.pending_count == 0
+    assert proxy.observe_server_message(response) is None
+
+
+def test_failed_trace_write_does_not_consume_response(tmp_path, monkeypatch):
+    from ordin.trace_capture import attach_trace, read_capture
+
+    path = tmp_path / "capture.db"
+    ordin, recorder = attach_trace(
+        Ordin(tool_semantics=_read_semantics()), path, integration="mcp-proxy"
+    )
+    proxy = MCPStdioSafetyProxy(server_id="fixture", gate=AgentGate(ordin), trace=recorder)
+    original = proxy.process_client_message(_call())
+    response = {"jsonrpc": "2.0", "id": 1, "result": {}}
+    record_observation = recorder.record_observation
+
+    def unavailable(*args, **kwargs):
+        raise OSError("capture unavailable")
+
+    monkeypatch.setattr(recorder, "record_observation", unavailable)
+    with pytest.raises(OSError, match="capture unavailable"):
+        proxy.observe_server_message(response)
+    assert proxy.pending_count == 1
+    assert not proxy.session.snapshot()["observations"]["observations"]
+    monkeypatch.setattr(recorder, "record_observation", record_observation)
+    assert proxy.observe_server_message(response).action_id == original.action_id
+    assert [event["event"] for event in read_capture(path)["events"]] == ["review", "observation"]
 
 
 @pytest.mark.parametrize(

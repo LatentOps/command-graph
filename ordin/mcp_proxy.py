@@ -401,8 +401,7 @@ class MCPStdioSafetyProxy:
             if method == "tools/list" and self.contracts is not None:
                 self.contracts.response(request_key, message)
             return None
-        with self._lock:
-            pending = self._pending.pop(request_key, None)
+        pending = self._pending.get(request_key)
         if pending is None:
             return None
 
@@ -456,6 +455,10 @@ class MCPStdioSafetyProxy:
         if self.trace is not None:
             self.trace.record_observation(observation, session_key=self.session.identity.key)
         self.session.observe(observation)
+        # Rejected responses must not free an in-flight request ID or lose the
+        # action needed to correlate a later valid response. The caller holds
+        # the proxy lock through validation and session acceptance.
+        del self._pending[request_key]
         if self.observations_path is not None:
             _append_private_jsonl(self.observations_path, observation.as_dict())
         return observation
