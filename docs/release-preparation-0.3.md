@@ -59,3 +59,8 @@ pinned independently in `requirements/release.txt`.
 Subsequent sections and evidence records identify the audited API, documented
 quickstarts, exact release candidate, and final release commit as those gates
 complete. Dependency approval alone is not release approval.
+
+The [public compatibility audit](public-compatibility-0.3.md) and
+[installed-wheel quickstarts](quickstart.md) are the next completed prerequisites.
+Follow the [exact candidate gate](release-candidate-gate.md) to produce the
+release-facing evaluation snapshot and record the accepted SHA.

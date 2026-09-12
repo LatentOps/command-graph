@@ -28,6 +28,10 @@ Tests require the installed distribution metadata and runtime version to match.
 
 ## Preparing a final release
 
+First complete the [exact release-candidate gate](release-candidate-gate.md)
+and record its successful source SHA, CI and attestation evidence. A final
+version change requires its own full gate afterward.
+
 Change the development version to the exact final version in both version declarations, then run the normal local gate:
 
 ```bash

@@ -280,7 +280,7 @@ def _claude_case(
     timeout_seconds: float,
 ) -> RuntimeCaseResult:
     payload = _claude_payload(tool_name, tool_input, tool_use_id=case_id)
-    command = [sys.executable, "-m", "ordin.claude_code", "pre"]
+    command = [sys.executable, "-I", "-m", "ordin.claude_code", "pre"]
     samples: list[int] = []
     actual = "not_run"
     exit_code = 1
@@ -310,7 +310,7 @@ def _claude_case(
                 event="PostToolUse",
             )
             post, _ = _run_process(
-                [sys.executable, "-m", "ordin.claude_code", "post"],
+                [sys.executable, "-I", "-m", "ordin.claude_code", "post"],
                 payload=post_payload,
                 env=env,
                 timeout_seconds=timeout_seconds,
@@ -379,6 +379,7 @@ def _mcp_case(
     fixture_server = repo_root / "scripts" / "runtime_fixture_mcp_server.py"
     command = [
         sys.executable,
+        "-I",
         "-m",
         "ordin.mcp_proxy",
         "--server-id",
@@ -611,7 +612,7 @@ def _codex_case(
     exit_code = 1
     for _ in range(repetitions):
         completed, elapsed = _run_process(
-            [sys.executable, "-m", "ordin.codex", "pre"],
+            [sys.executable, "-I", "-m", "ordin.codex", "pre"],
             payload=payload,
             env=env,
             timeout_seconds=timeout_seconds,
@@ -628,7 +629,7 @@ def _codex_case(
         with tempfile.TemporaryDirectory(prefix="ordin-codex-observation-") as directory:
             path = Path(directory) / "observations.jsonl"
             post, _ = _run_process(
-                [sys.executable, "-m", "ordin.codex", "post"],
+                [sys.executable, "-I", "-m", "ordin.codex", "post"],
                 payload={
                     **payload,
                     "hook_event_name": "PostToolUse",
