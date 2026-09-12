@@ -15,7 +15,7 @@ MAX_SERVER_NAME_LENGTH = 256
 def _required_text(value: str, *, name: str, maximum: int) -> str:
     if not isinstance(value, str) or not value.strip():
         raise ValueError(f"{name} must be non-empty text")
-    value = value.strip()
+    # Identity matching must use the same text that the runtime will execute.
     if len(value) > maximum:
         raise ValueError(f"{name} must be at most {maximum} characters")
     return value

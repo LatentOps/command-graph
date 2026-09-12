@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import os
 import platform
 import sys
 from collections import Counter
@@ -9,6 +10,7 @@ from pathlib import Path
 from time import perf_counter_ns
 from typing import Any, Callable, Iterable, Sequence
 
+from . import __version__
 from .action import ActionEnvelope, ActionReview
 from .agent import AgentDecision, AgentGate
 from .api import Ordin
@@ -41,6 +43,14 @@ def _action_review(decision: AgentDecision) -> ActionReview:
     if not isinstance(review, ActionReview):
         raise TypeError("integration evaluation requires generic ActionReview")
     return review
+
+
+def _has_linked_provenance(review: ActionReview) -> bool:
+    return bool(
+        review.action.action_id is not None
+        and review.provenance is not None
+        and any(record.action_id == review.action.action_id for record in review.provenance.records)
+    )
 
 
 def _percentile_ms(values_ns: Sequence[int], percentile: float) -> float:
@@ -85,6 +95,10 @@ class IntegrationWorkloadResult:
     @property
     def false_block(self) -> bool:
         return self.expected == "allow" and self.actual == "block"
+
+    @property
+    def unnecessary_escalation(self) -> bool:
+        return self.expected == "allow" and self.actual in {"warn", "ask"}
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -163,7 +177,9 @@ class IntegrationEvaluationReport:
 
     @property
     def integration_latencies(self) -> tuple[int, ...]:
-        return tuple(sample for result in self.workloads for sample in result.integration_latency_ns)
+        return tuple(
+            sample for result in self.workloads for sample in result.integration_latency_ns
+        )
 
     @property
     def friction_categories(self) -> list[str]:
@@ -180,7 +196,9 @@ class IntegrationEvaluationReport:
             categories.append("decision_mapping")
         if any(not result.provenance_ok for result in self.workloads):
             categories.append("provenance_linkage")
-        if any(result.observation_expected and not result.observation_ok for result in self.workloads):
+        if any(
+            result.observation_expected and not result.observation_ok for result in self.workloads
+        ):
             categories.append("observation_linkage")
         return categories
 
@@ -197,7 +215,9 @@ class IntegrationEvaluationReport:
                     f"integration workload {result.id}: expected={result.expected}; actual={result.actual}"
                 )
             if not result.integration_mapping_ok:
-                errors.append(f"integration workload {result.id}: runtime decision mapping mismatch")
+                errors.append(
+                    f"integration workload {result.id}: runtime decision mapping mismatch"
+                )
             if not result.provenance_ok:
                 errors.append(f"integration workload {result.id}: provenance linkage missing")
             if result.observation_expected and not result.observation_ok:
@@ -216,6 +236,16 @@ class IntegrationEvaluationReport:
                 "python": platform.python_version(),
                 "implementation": platform.python_implementation(),
                 "platform": platform.platform(),
+                "machine": platform.machine(),
+                "processor": platform.processor(),
+                "logical_cpus": os.cpu_count(),
+            },
+            "configuration": {
+                "ordin_version": __version__,
+                "fail_on": "warn",
+                "integration_mode": "local fixture adapters; no live agent runtime",
+                "core_latency_samples": len(self.core_latencies),
+                "integration_latency_samples": len(self.integration_latencies),
             },
             "scope": {
                 "integration_workloads": len(self.workloads),
@@ -231,6 +261,13 @@ class IntegrationEvaluationReport:
                 "combined_integration_and_trajectory": dict(sorted(combined_decisions.items())),
                 "integration_false_allows": self.integration_false_allows,
                 "integration_false_blocks": self.integration_false_blocks,
+                "integration_unnecessary_escalations": sum(
+                    result.unnecessary_escalation for result in self.workloads
+                ),
+                "integration_critical_misses": sum(
+                    result.expected == "block" and result.actual != "block"
+                    for result in self.workloads
+                ),
                 "safety_false_allows": safety_payload["false_allows"],
                 "safety_critical_misses": safety_payload["critical_misses"],
                 "safety_false_blocks": safety_payload["false_blocks"],
@@ -348,7 +385,9 @@ def _claude_workloads(repetitions: int) -> list[IntegrationWorkloadResult]:
         measured_review = _action_review(measured_decision)
         output = integration.pre_tool_output(payload)
         permission = output["hookSpecificOutput"]["permissionDecision"]
-        expected_permission = "allow" if expected == "allow" else ("deny" if expected == "block" else "ask")
+        expected_permission = (
+            "allow" if expected == "allow" else ("deny" if expected == "block" else "ask")
+        )
         observation_expected = expected == "allow"
         observation_ok = True
         if observation_expected:
@@ -359,7 +398,9 @@ def _claude_workloads(repetitions: int) -> list[IntegrationWorkloadResult]:
                     "tool_response": {"content": "fixture output"},
                 }
             )
-            observation_ok = observation.action_id == action.action_id and observation.exit_code == 0
+            observation_ok = (
+                observation.action_id == action.action_id and observation.exit_code == 0
+            )
         results.append(
             IntegrationWorkloadResult(
                 id=case_id,
@@ -368,7 +409,7 @@ def _claude_workloads(repetitions: int) -> list[IntegrationWorkloadResult]:
                 expected=expected,
                 actual=measured_review.decision,
                 integration_mapping_ok=permission == expected_permission,
-                provenance_ok=measured_review.provenance is not None,
+                provenance_ok=_has_linked_provenance(measured_review),
                 observation_expected=observation_expected,
                 observation_ok=observation_ok,
                 core_latency_ns=core_samples,
@@ -435,7 +476,9 @@ def _mcp_workloads(repetitions: int) -> list[IntegrationWorkloadResult]:
         if tool in shell_tools:
             command = arguments.get("command")
             if isinstance(command, str):
-                action = ActionEnvelope.shell(command, context=proxy.context, action_id=action.action_id)
+                action = ActionEnvelope.shell(
+                    command, context=proxy.context, action_id=action.action_id
+                )
         core_samples, core_review = _measure(lambda: gate.ordin.review_action(action), repetitions)
         assert isinstance(core_review, ActionReview)
 
@@ -492,7 +535,7 @@ def _mcp_workloads(repetitions: int) -> list[IntegrationWorkloadResult]:
                 expected=expected,
                 actual=core_review.decision,
                 integration_mapping_ok=mapping_ok,
-                provenance_ok=core_review.provenance is not None,
+                provenance_ok=_has_linked_provenance(core_review),
                 observation_expected=observation_expected,
                 observation_ok=observation_ok,
                 core_latency_ns=core_samples,
@@ -535,7 +578,7 @@ def _mcp_workloads(repetitions: int) -> list[IntegrationWorkloadResult]:
                 and mapped.response is not None
                 and mapped.response.get("error", {}).get("code") == APPROVAL_REQUIRED_CODE
             ),
-            provenance_ok=core_review.provenance is not None,
+            provenance_ok=_has_linked_provenance(core_review),
             observation_expected=False,
             observation_ok=True,
             core_latency_ns=core_samples,
@@ -554,6 +597,8 @@ def run_integration_evaluation(
     revision: str = "working-tree",
     repetitions: int = DEFAULT_REPETITIONS,
 ) -> IntegrationEvaluationReport:
+    if isinstance(repetitions, bool) or not isinstance(repetitions, int) or repetitions < 1:
+        raise ValueError("repetitions must be a positive integer")
     safety = evaluate_safety(load_safety_fixtures(Path(safety_path)), repetitions=1)
     trajectories = run_agent_trajectory_corpus(load_agent_trajectories(trajectory_path))
     conformance = run_integration_conformance()
@@ -585,6 +630,8 @@ def render_markdown_report(report: IntegrationEvaluationReport) -> str:
         "# Ordin real-agent integration evaluation",
         "",
         f"Revision: `{payload['revision']}`",
+        f"Ordin: `{payload['configuration']['ordin_version']}`; policy: `fail_on=warn`",
+        f"Environment: {payload['environment']['python']} / {payload['environment']['platform']} / {payload['environment']['logical_cpus']} logical CPUs",
         "",
         "This report is generated from versioned local safety fixtures, maintained first-party integration paths, and the reviewed real-agent trajectory corpus. It is an engineering evaluation, not a claim of universal agent safety.",
         "",
@@ -600,6 +647,8 @@ def render_markdown_report(report: IntegrationEvaluationReport) -> str:
         "",
         f"- Integration false allows: {decisions['integration_false_allows']}",
         f"- Integration false blocks: {decisions['integration_false_blocks']}",
+        f"- Integration unnecessary escalations: {decisions['integration_unnecessary_escalations']}",
+        f"- Integration critical misses: {decisions['integration_critical_misses']}",
         f"- Safety-fixture false allows: {decisions['safety_false_allows']}",
         f"- Safety-fixture critical misses: {decisions['safety_critical_misses']}",
         f"- Safety-fixture false blocks: {decisions['safety_false_blocks']}",

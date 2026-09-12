@@ -40,7 +40,16 @@ ordin-mcp-proxy \
 
 Everything after `--` is the upstream stdio server command. The proxy starts that process, forwards its stderr to the caller's stderr, and keeps stdout reserved for valid MCP JSON-RPC messages.
 
+The proxy exits when its upstream server exits, even if the client keeps stdin
+open. It preserves the server's exit code; an upstream protocol failure returns
+exit code `1`. Client EOF still gives the server the configured
+`--shutdown-timeout` to finish before it is terminated.
+
 `--server-id` is required and is part of the safety identity. Trusted semantics match an exact `(kind="mcp", server, tool)` tuple. A semantics file for another server identity does not transfer trust to this proxy instance.
+
+Identities retain their original whitespace. For example, `read_file` and
+` read_file ` are different tools; the latter cannot inherit the former's
+trusted semantics or shell mapping.
 
 ## Tool semantics
 

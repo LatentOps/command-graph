@@ -1,9 +1,19 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from pathlib import Path
 
-from ordin.integration_evaluation import render_markdown_report, run_integration_evaluation
+import pytest
+
+from ordin.claude_code import ClaudeCodeIntegration
+from ordin.integration_evaluation import (
+    _action_review,
+    _claude_payload,
+    _has_linked_provenance,
+    render_markdown_report,
+    run_integration_evaluation,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -60,3 +70,26 @@ def test_markdown_report_states_scope_metrics_and_limitations():
     assert "Integration boundary p50 / p95 / p99" in markdown
     assert "not a claim of universal agent safety" in markdown
     assert "model inference" in markdown
+
+
+def test_provenance_linkage_requires_the_matching_action_id():
+    review = _action_review(
+        ClaudeCodeIntegration().review_pre_tool(
+            _claude_payload("Read", {"file_path": "/tmp/example"}, tool_use_id="linkage")
+        )
+    )
+    assert _has_linked_provenance(review)
+    mismatched = replace(review, action=replace(review.action, action_id="different-action"))
+    assert not _has_linked_provenance(mismatched)
+    assert not _has_linked_provenance(replace(review, provenance=None))
+
+
+@pytest.mark.parametrize("repetitions", [0, -1, True, 1.5])
+def test_invalid_repetitions_fail_before_loading_corpora(repetitions):
+    with pytest.raises(ValueError, match="positive integer"):
+        run_integration_evaluation(
+            safety_path="missing",
+            trajectory_path="missing",
+            regression_path="missing",
+            repetitions=repetitions,
+        )
