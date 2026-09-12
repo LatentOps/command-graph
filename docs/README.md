@@ -119,6 +119,7 @@ The safety benchmark has separate hard regression gates for false allows, critic
 - [Command packs](command-packs.md)
 - [Schema contracts](schema-contracts.md)
 - [Releasing Ordin](releasing.md)
+- [Security and threat model](threat-model.md)
 - [Contributing guidelines](../CONTRIBUTING.md)
 
 The local quality contract is:

@@ -226,6 +226,12 @@ and detailed API contracts.
 See the [compatibility matrix](docs/compatibility.md) for Linux/macOS validation,
 supported integrations, and Linux-specific command metadata.
 
+## Security
+
+Report vulnerabilities through the [private security process](SECURITY.md).
+The [threat model](docs/threat-model.md) explains review, execution, evidence,
+and release trust boundaries.
+
 ## License
 
 Apache License 2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).

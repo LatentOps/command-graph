@@ -1,5 +1,9 @@
 # Decision provenance and local audit evidence
 
+Hash-chain verification checks internal consistency. For concurrent writers,
+private-file requirements, trusted head checkpoints, and the limits of local
+evidence, see the [audit threat model](threat-model.md#local-evidence).
+
 Ordin can explain how a generic action review reached its final decision and can optionally append that evidence to a local JSONL audit file. These features do not give Ordin execution authority and do not add telemetry or a hosted control plane.
 
 ## First-class decision provenance
