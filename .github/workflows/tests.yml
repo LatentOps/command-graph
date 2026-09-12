@@ -51,6 +51,12 @@ jobs:
         run: python scripts/run_trajectory_corpus.py --json-out agent-trajectory-report.json
       - name: Replay promoted integration regressions
         run: python scripts/replay_regression.py --json-out regression-replay-report.json
+      - name: Run real-agent integration evaluation
+        run: >-
+          python scripts/run_integration_evaluation.py
+          --revision "${GITHUB_SHA}"
+          --json-out integration-evaluation-report.json
+          --markdown-out integration-evaluation-report.md
       - name: Upload safety benchmark reports
         uses: actions/upload-artifact@v4
         with:
@@ -59,6 +65,8 @@ jobs:
             safety-benchmark-report.json
             agent-trajectory-report.json
             regression-replay-report.json
+            integration-evaluation-report.json
+            integration-evaluation-report.md
           if-no-files-found: error
 
   test:

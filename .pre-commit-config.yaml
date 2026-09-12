@@ -27,6 +27,7 @@ repos:
           ordin/regression_replay.py
           ordin/regression_promotion.py
           ordin/integration_conformance.py
+          ordin/integration_evaluation.py
           ordin/diagnostics.py
           ordin/adapters.py
           ordin/agent.py
