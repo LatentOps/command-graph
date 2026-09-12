@@ -182,7 +182,9 @@ class RegressionReplay:
         if policy_raw is not None and not isinstance(policy_raw, Mapping):
             raise ValueError(f"{replay_id} action_policy must be an object or null")
         if not isinstance(observations_raw, list) or len(observations_raw) > MAX_OBSERVATIONS:
-            raise ValueError(f"{replay_id} observations must contain at most {MAX_OBSERVATIONS} items")
+            raise ValueError(
+                f"{replay_id} observations must contain at most {MAX_OBSERVATIONS} items"
+            )
         observations: list[ActionObservation] = []
         for item in observations_raw:
             if not isinstance(item, Mapping):
@@ -204,7 +206,9 @@ class RegressionReplay:
             invariant=invariant,
             why_it_matters=why_it_matters,
             kind=cast(RegressionKind, kind),
-            safety=(SafetyFixture.from_dict(safety_raw) if isinstance(safety_raw, Mapping) else None),
+            safety=(
+                SafetyFixture.from_dict(safety_raw) if isinstance(safety_raw, Mapping) else None
+            ),
             trajectory=(
                 AgentTrajectory.from_dict(trajectory_raw)
                 if isinstance(trajectory_raw, Mapping)
@@ -222,7 +226,9 @@ class RegressionReplay:
             expected_trajectory_categories=expected_trajectory_categories,
             expected_provenance_codes=expected_provenance_codes,
             max_latency_ms=float(max_latency_ms) if max_latency_ms is not None else None,
-            origin=origin_raw.strip() if isinstance(origin_raw, str) and origin_raw.strip() else None,
+            origin=origin_raw.strip()
+            if isinstance(origin_raw, str) and origin_raw.strip()
+            else None,
         )
 
 
@@ -281,7 +287,9 @@ class RegressionReplayReport:
                         failure_class: sum(
                             result.replay.failure_class == failure_class for result in self.results
                         )
-                        for failure_class in {result.replay.failure_class for result in self.results}
+                        for failure_class in {
+                            result.replay.failure_class for result in self.results
+                        }
                     }.items()
                 )
             ),
@@ -414,9 +422,7 @@ def run_regression_replays(
     if replay_id is not None and not selected:
         raise ValueError(f"unknown regression replay id {replay_id!r}")
     results = tuple(
-        _run_safety_replay(replay)
-        if replay.kind == "safety"
-        else _run_trajectory_replay(replay)
+        _run_safety_replay(replay) if replay.kind == "safety" else _run_trajectory_replay(replay)
         for replay in selected
     )
     return RegressionReplayReport(results=results)
