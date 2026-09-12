@@ -741,6 +741,7 @@ class _MCPHTTPHandler(BaseHTTPRequestHandler):
                 target.hostname, target.port, timeout=self.server.config.timeout
             )
             upstream.response_class = _BoundedHTTPResponse
+            self._upstream_expires_at = time.monotonic() + self.server.config.timeout
             upstream_deadline = threading.Timer(self.server.config.timeout, self._expire_upstream)
             upstream_deadline.daemon = True
             upstream_deadline.start()
@@ -765,6 +766,7 @@ class _MCPHTTPHandler(BaseHTTPRequestHandler):
                 headers["Last-Event-ID"] = event_id
             upstream.request(self.command, target.path or "/", body=body, headers=headers)
             response = upstream.getresponse()
+            self._check_upstream_deadline()
             self._validate_upstream_headers(response)
             if 300 <= response.status < 400:
                 raise HTTPBoundaryError(502, "upstream_redirect_refused")
@@ -817,6 +819,7 @@ class _MCPHTTPHandler(BaseHTTPRequestHandler):
                 self._stream(response, session, request_id=request_id if is_request else None)
             elif content_type == "application/json" and self.command == "POST":
                 raw = response.read(MAX_MCP_MESSAGE_BYTES + 1)
+                self._check_upstream_deadline()
                 if len(raw) > MAX_MCP_MESSAGE_BYTES:
                     raise HTTPBoundaryError(502, "upstream_body_limit_exceeded")
                 reply = _parse_jsonrpc_line(raw)
@@ -836,7 +839,7 @@ class _MCPHTTPHandler(BaseHTTPRequestHandler):
             if not self._sent:
                 self._json(exc.status, {"error": exc.code})
         except (TimeoutError, socket.timeout):
-            if session is not None and self.command == "POST" and not self._sent:
+            if session is not None and self.command == "POST" and not self._resumable_seen:
                 session.failed = True
             if not self._sent:
                 self._json(504, {"error": "upstream_or_client_timeout"})
@@ -894,6 +897,11 @@ class _MCPHTTPHandler(BaseHTTPRequestHandler):
         if length is not None and (not length.isdecimal() or int(length) > MAX_MCP_MESSAGE_BYTES):
             raise HTTPBoundaryError(502, "upstream_body_limit_exceeded")
 
+    def _check_upstream_deadline(self) -> None:
+        if self._upstream_timed_out.is_set() or time.monotonic() >= self._upstream_expires_at:
+            self._upstream_timed_out.set()
+            raise TimeoutError("upstream deadline exceeded")
+
     def _stream(
         self,
         response: http.client.HTTPResponse,
@@ -901,12 +909,13 @@ class _MCPHTTPHandler(BaseHTTPRequestHandler):
         *,
         request_id: str | int | float | None,
     ) -> None:
-        started = time.monotonic()
         event = bytearray()
         data: list[bytes] = []
         total = 0
-        while time.monotonic() - started < self.server.config.timeout:
+        while True:
+            self._check_upstream_deadline()
             line = response.readline(MAX_MCP_MESSAGE_BYTES + 1)
+            self._check_upstream_deadline()
             if not line:
                 if request_id is not None and not self._resumable_seen:
                     raise HTTPBoundaryError(502, "upstream_stream_ended_without_result")
@@ -959,8 +968,6 @@ class _MCPHTTPHandler(BaseHTTPRequestHandler):
             data.clear()
             if terminal:
                 return
-        self.wfile.write(b"retry: 1000\n\n")
-        self.wfile.flush()
 
 
 def build_http_server(

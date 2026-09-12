@@ -1,5 +1,6 @@
 {
   "schema_version": "ordin.command_card.v1",
+  "platforms": {"os": ["linux"]},
   "command": "ss",
   "summary": "Inspect sockets and network connections.",
   "aliases": ["socket statistics", "port", "listening"],

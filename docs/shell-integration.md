@@ -4,6 +4,10 @@ Ordin's shell integration is explicit, local, and reversible. It does
 not upload command history or automatically install itself into shell startup
 files.
 
+Bash and Zsh execution are tested on macOS as well as the Linux coverage listed
+in the [compatibility matrix](compatibility.md). Zsh helpers use ordinary local
+names for review exit codes because [`status` is a read-only Zsh parameter](https://zsh.sourceforge.io/Doc/Release/Parameters.html).
+
 ## Bash
 
 Load the integration for the current shell:

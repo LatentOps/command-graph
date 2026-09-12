@@ -85,6 +85,6 @@ pytest -q
 
 The pre-commit gate covers Ruff lint and formatting, staged mypy checks, Python compilation, `ordin doctor`, and repository namespace integrity. CI executes the same pre-commit configuration before its Python-version, package, and Linux compatibility jobs.
 
-## Supported Python and Linux validation
+## Supported Python and platform validation
 
-Ordin supports Python 3.10 through 3.13. CI tests every supported Python version and also performs isolated installed-CLI smoke tests on Debian and Fedora in addition to the standard Ubuntu runner.
+Ordin supports Python 3.10 through 3.13. CI tests every supported Python version on Linux, runs the full integration suite on macOS 15 with Python 3.13, and performs installed-CLI smoke tests on Debian and Fedora. See the [compatibility matrix](compatibility.md) for tested shells, agent boundaries, and Linux-specific command knowledge.

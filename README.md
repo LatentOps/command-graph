@@ -147,7 +147,9 @@ semantics match exact identities. See the [Python API](docs/python-api.md) and
 | Integration | Entry point | Guide |
 | --- | --- | --- |
 | Claude Code hooks | `ordin-claude-hook` | [Hook configuration and supported tools](docs/claude-code-integration.md) |
+| Codex hooks | `ordin-codex-hook` | [Hooks and plugin configuration](docs/codex-integration.md) |
 | An MCP client and stdio server | `ordin-mcp-proxy` | [Proxy setup and tool semantics](docs/mcp-safety-proxy.md) |
+| An MCP client and HTTP server | `ordin-mcp-http` | [Streamable HTTP setup](docs/mcp-http-proxy.md) |
 | Bash or Zsh | `ordin shell-init` and `orun` | [Reviewed shell execution](docs/shell-integration.md) |
 | Your own runtime | Python API or JSON CLI | [Runnable integration examples](examples/integrations/README.md) |
 
@@ -220,6 +222,9 @@ For debugging and regression work, see [integration diagnostics](docs/integratio
 
 The [documentation index](docs/README.md) links to the architecture, examples,
 and detailed API contracts.
+
+See the [compatibility matrix](docs/compatibility.md) for Linux/macOS validation,
+supported integrations, and Linux-specific command metadata.
 
 ## License
 

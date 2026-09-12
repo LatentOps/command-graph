@@ -30,7 +30,7 @@ orun() {
     return 2
   fi
 
-  local threshold output status
+  local threshold output review_status
   threshold="$(__ordin_shell_threshold)" || return $?
 
   local -a review_args
@@ -49,13 +49,13 @@ orun() {
   fi
 
   output="$(command ordin "${review_args[@]}" 2>&1)"
-  status=$?
+  review_status=$?
 
   if [[ "$output" != decision:\ allow* ]]; then
     printf '%s\n' "$output" >&2
   fi
-  if (( status != 0 )); then
-    return "$status"
+  if (( review_status != 0 )); then
+    return "$review_status"
   fi
 
   # Deliberately use a child shell rather than eval. Stateful commands such as
@@ -118,7 +118,7 @@ orun() {
     return 2
   fi
 
-  local threshold output status
+  local threshold output review_status
   threshold="$(__ordin_shell_threshold)" || return $?
 
   local -a review_args
@@ -137,13 +137,13 @@ orun() {
   fi
 
   output="$(command ordin "${review_args[@]}" 2>&1)"
-  status=$?
+  review_status=$?
 
   if [[ "$output" != decision:\ allow* ]]; then
     print -ru2 -- "$output"
   fi
-  if (( status != 0 )); then
-    return "$status"
+  if (( review_status != 0 )); then
+    return "$review_status"
   fi
 
   command zsh -c "$command_text" ordin-shell
@@ -156,7 +156,7 @@ __ordin_zle_review_accept() {
     return
   fi
 
-  local threshold output status
+  local threshold output review_status
   threshold="$(__ordin_shell_threshold)" || {
     zle -M 'Ordin: invalid enforcement threshold'
     return
@@ -178,8 +178,8 @@ __ordin_zle_review_accept() {
   fi
 
   output="$(command ordin "${review_args[@]}" 2>&1)"
-  status=$?
-  if (( status == 0 )); then
+  review_status=$?
+  if (( review_status == 0 )); then
     if [[ "$output" != decision:\ allow* ]]; then
       zle -I
       print -r -- "$output"
