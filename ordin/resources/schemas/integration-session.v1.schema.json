@@ -1,0 +1,264 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://latentops.dev/schemas/ordin/integration-session.v1.schema.json",
+  "title": "Ordin Integration Session v1",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "identity",
+    "configuration_digest",
+    "sequence",
+    "history",
+    "observations",
+    "denied_action_ids"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ordin.integration_session.v1"
+    },
+    "identity": {
+      "type": "object",
+      "required": [
+        "runtime",
+        "session_id_sha256",
+        "server"
+      ],
+      "properties": {
+        "runtime": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "session_id_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "server": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "maxLength": 4096
+        }
+      },
+      "additionalProperties": false
+    },
+    "configuration_digest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "sequence": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "denied_action_ids": {
+      "type": "array",
+      "maxItems": 32,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      }
+    },
+    "history": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "actions"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "ordin.action_history.v1"
+        },
+        "actions": {
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "type": "object",
+            "required": [
+              "schema_version",
+              "action_id",
+              "kind",
+              "operation",
+              "parameters",
+              "intent",
+              "context"
+            ],
+            "properties": {
+              "schema_version": {
+                "const": "ordin.action_envelope.v1"
+              },
+              "action_id": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "kind": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "pattern": "^[a-z][a-z0-9_.-]*$"
+              },
+              "operation": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128,
+                "pattern": "^[a-z][a-z0-9_.-]*$"
+              },
+              "parameters": {
+                "type": "object",
+                "maxProperties": 128,
+                "additionalProperties": true
+              },
+              "intent": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "context": {
+                "type": [
+                  "object",
+                  "null"
+                ],
+                "properties": {
+                  "cwd": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "shell": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "euid": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "interactive": {
+                    "type": [
+                      "boolean",
+                      "null"
+                    ]
+                  },
+                  "repo_root": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "agent": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "observations": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "observations"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "ordin.observation_history.v1"
+        },
+        "observations": {
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "type": "object",
+            "required": [
+              "schema_version",
+              "action_id",
+              "exit_code",
+              "effects",
+              "resources",
+              "metadata"
+            ],
+            "properties": {
+              "schema_version": {
+                "const": "ordin.action_observation.v1"
+              },
+              "action_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "exit_code": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "effects": {
+                "type": "array",
+                "maxItems": 128,
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256,
+                  "pattern": "^[a-z][a-z0-9_.-]*$"
+                }
+              },
+              "resources": {
+                "type": "array",
+                "maxItems": 128,
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "type",
+                    "value"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 64,
+                      "pattern": "^[a-z][a-z0-9_.-]*$"
+                    },
+                    "value": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 32768
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "metadata": {
+                "type": "object",
+                "maxProperties": 128,
+                "additionalProperties": true
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

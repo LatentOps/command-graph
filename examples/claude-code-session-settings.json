@@ -1,0 +1,9 @@
+{
+  "hooks": {
+    "SessionStart": [{"hooks": [{"type": "command", "command": "ordin-claude-hook session-start"}]}],
+    "PreToolUse": [{"matcher": "*", "hooks": [{"type": "command", "command": "ordin-claude-hook pre"}]}],
+    "PostToolUse": [{"matcher": "*", "hooks": [{"type": "command", "command": "ordin-claude-hook post"}]}],
+    "PostToolUseFailure": [{"matcher": "*", "hooks": [{"type": "command", "command": "ordin-claude-hook post-failure"}]}],
+    "SessionEnd": [{"hooks": [{"type": "command", "command": "ordin-claude-hook session-end"}]}]
+  }
+}

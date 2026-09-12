@@ -43,6 +43,7 @@ The Python API reviews actions but never executes them.
 
 - [Integration starter kit](../examples/integrations/README.md)
 - [Claude Code hooks](claude-code-integration.md)
+- [Live integration sessions](integration-sessions.md)
 - [MCP safety proxy](mcp-safety-proxy.md)
 - [Integration diagnostics](integration-troubleshooting.md)
 - [Agent runtime integration](agent-integration.md)

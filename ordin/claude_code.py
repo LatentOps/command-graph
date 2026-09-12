@@ -17,12 +17,14 @@ from .api import Ordin
 from .audit import JsonlAuditSink
 from .context import ExecutionContext
 from .execution import ActionObservation
+from .session import IntegrationSession, SessionIdentity, SqliteSessionStore
 from .tool_calls import ToolResourceBinding, ToolSemanticRule, ToolSemanticsRegistry
 
 
 CLAUDE_CODE_RUNTIME = "claude-code"
 CLAUDE_CODE_AUDIT_ENV = "ORDIN_CLAUDE_AUDIT"
 CLAUDE_CODE_OBSERVATIONS_ENV = "ORDIN_CLAUDE_OBSERVATIONS"
+CLAUDE_CODE_STATE_ENV = "ORDIN_CLAUDE_STATE"
 MAX_HOOK_INPUT_BYTES = 1_048_576
 MAX_LOCAL_EVENT_BYTES = 1_048_576
 MAX_HOOK_TEXT_LENGTH = 4096
@@ -164,6 +166,13 @@ class ClaudeCodeIntegration:
 
     gate: AgentGate = field(default_factory=_default_gate)
     adapter: ToolCallAdapter = field(default_factory=_default_adapter)
+    session: IntegrationSession | None = None
+
+    def _check_session(self, session_id: str) -> None:
+        if self.session is not None:
+            self.session.require_identity(SessionIdentity(CLAUDE_CODE_RUNTIME, session_id))
+            if self.session.gate is not self.gate:
+                raise ValueError("Claude integration must use the session's configured gate")
 
     def review_pre_tool(self, payload: Mapping[str, Any]) -> AgentDecision:
         """Review one Claude Code ``PreToolUse`` event."""
@@ -173,6 +182,7 @@ class ClaudeCodeIntegration:
             raise ValueError("expected a PreToolUse hook event")
 
         session_id = _required_text(payload.get("session_id"), name="session_id")
+        self._check_session(session_id)
         tool_use_id = _required_text(payload.get("tool_use_id"), name="tool_use_id")
         tool_name = _required_text(payload.get("tool_name"), name="tool_name")
         cwd = _required_text(payload.get("cwd"), name="cwd")
@@ -222,6 +232,8 @@ class ClaudeCodeIntegration:
             context=action.context,
             action_id=action.action_id,
         )
+        if self.session is not None:
+            return self.session.evaluate(bound_action)
         return self.gate.evaluate_action(bound_action)
 
     def pre_tool_output(self, payload: Mapping[str, Any]) -> dict[str, Any]:
@@ -246,7 +258,9 @@ class ClaudeCodeIntegration:
         }[decision.disposition]
         return _pre_tool_permission(permission, _decision_reason(decision))
 
-    def observation_from_hook(self, payload: Mapping[str, Any]) -> ActionObservation:
+    def observation_from_hook(
+        self, payload: Mapping[str, Any], *, observed_effects: tuple[str, ...] = ()
+    ) -> ActionObservation:
         """Convert successful or failed post-tool hooks into redacted evidence."""
 
         event = _required_text(payload.get("hook_event_name"), name="hook_event_name")
@@ -254,6 +268,7 @@ class ClaudeCodeIntegration:
             raise ValueError("expected PostToolUse or PostToolUseFailure hook event")
 
         session_id = _required_text(payload.get("session_id"), name="session_id")
+        self._check_session(session_id)
         tool_use_id = _required_text(payload.get("tool_use_id"), name="tool_use_id")
         tool_name = _required_text(payload.get("tool_name"), name="tool_name")
         permission_mode = _required_text(
@@ -290,11 +305,15 @@ class ClaudeCodeIntegration:
 
         # Do not copy tool_response or error text into durable evidence. Both can
         # contain source code, secrets, command output, or other sensitive data.
-        return ActionObservation(
+        observation = ActionObservation(
             action_id=action_id,
             exit_code=exit_code,
+            effects=observed_effects,
             metadata=metadata,
         )
+        if self.session is not None:
+            self.session.observe(observation)
+        return observation
 
 
 def _decision_reason(decision: AgentDecision) -> str:
@@ -374,9 +393,16 @@ def _append_private_jsonl(path: str | Path, payload: Mapping[str, Any]) -> None:
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
-    if len(args) != 1 or args[0] not in {"pre", "post", "post-failure"}:
+    if len(args) != 1 or args[0] not in {
+        "pre",
+        "post",
+        "post-failure",
+        "session-start",
+        "session-reset",
+        "session-end",
+    }:
         print(
-            "usage: ordin-claude-hook {pre|post|post-failure}",
+            "usage: ordin-claude-hook {pre|post|post-failure|session-start|session-reset|session-end}",
             file=sys.stderr,
         )
         return 2
@@ -390,6 +416,20 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 0
         print(f"ordin-claude-hook: {exc}", file=sys.stderr)
         return 1
+
+    state_path = os.environ.get(CLAUDE_CODE_STATE_ENV)
+    if state_path:
+        try:
+            return _stateful_hook(mode, payload, state_path)
+        except (OSError, ValueError) as exc:
+            if mode == "pre":
+                print(json.dumps(_pre_tool_permission("deny", f"Ordin session error: {exc}")))
+                return 0
+            print(f"ordin-claude-hook: {exc}", file=sys.stderr)
+            return 1
+    if mode.startswith("session-"):
+        # Lifecycle hooks are safe to install before opting into persistence.
+        return 0
 
     if mode == "pre":
         audit_path = os.environ.get(CLAUDE_CODE_AUDIT_ENV) or None
@@ -417,6 +457,50 @@ def main(argv: Sequence[str] | None = None) -> int:
     except (OSError, ValueError) as exc:
         print(f"ordin-claude-hook: {exc}", file=sys.stderr)
         return 1
+    return 0
+
+
+def _stateful_hook(mode: str, payload: Mapping[str, Any], path: str) -> int:
+    expected = {
+        "pre": "PreToolUse",
+        "post": "PostToolUse",
+        "post-failure": "PostToolUseFailure",
+        "session-start": "SessionStart",
+        "session-reset": "SessionStart",
+        "session-end": "SessionEnd",
+    }[mode]
+    if payload.get("hook_event_name") != expected:
+        raise ValueError(f"expected {expected} hook input")
+    identity = SessionIdentity(
+        CLAUDE_CODE_RUNTIME, _required_text(payload.get("session_id"), name="session_id")
+    )
+    gate = build_claude_code_integration(
+        audit_path=os.environ.get(CLAUDE_CODE_AUDIT_ENV) or None
+    ).gate
+    output = None
+    with SqliteSessionStore(path).transaction(
+        identity,
+        gate,
+        create=mode in {"session-start", "session-reset"},
+        reset=mode == "session-reset",
+    ) as session:
+        integration = ClaudeCodeIntegration(gate=gate, session=session)
+        if mode == "pre":
+            # Let invalid input escape the transaction so it cannot commit.
+            decision = integration.review_pre_tool(payload)
+            permission = {"execute": "allow", "escalate": "ask", "deny": "deny"}[
+                decision.disposition
+            ]
+            output = _pre_tool_permission(permission, _decision_reason(decision))
+        elif mode in {"post", "post-failure"}:
+            observation = integration.observation_from_hook(payload)
+            if observation_path := os.environ.get(CLAUDE_CODE_OBSERVATIONS_ENV):
+                _append_private_jsonl(observation_path, observation.as_dict())
+        elif mode == "session-end":
+            session.end()
+    # Never allow execution until the state transaction has committed.
+    if output is not None:
+        print(json.dumps(output, sort_keys=True, separators=(",", ":")))
     return 0
 
 

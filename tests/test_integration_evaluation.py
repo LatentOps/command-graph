@@ -58,6 +58,11 @@ def test_real_agent_evaluation_reports_required_scope_and_metrics():
     assert payload["decisions"]["safety_critical_misses"] == 0
     assert payload["policy"]["accuracy_passed"] is True
     assert payload["errors"] == []
+    assert payload["live_sessions"]["trajectories_exercised"] == 12
+    assert payload["live_sessions"]["errors"] == []
+    assert payload["live_sessions"]["temporal_detections"] == 6
+    assert payload["live_sessions"]["session_isolation_failures"] == 0
+    assert payload["live_sessions"]["observation_linkage_failures"] == 0
     json.dumps(payload)
 
 

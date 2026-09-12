@@ -19,6 +19,7 @@ from .diagnostics import integration_health
 from .integration_conformance import IntegrationConformanceReport, run_integration_conformance
 from .mcp_proxy import APPROVAL_REQUIRED_CODE, BLOCKED_CODE, MCPStdioSafetyProxy
 from .policy import Decision
+from .session_evaluation import LiveSessionEvaluation, run_live_session_evaluation
 from .regression_replay import load_failure_regressions, run_failure_regressions
 from .safety_benchmark import (
     SafetyBenchmarkReport,
@@ -129,6 +130,7 @@ class IntegrationEvaluationReport:
     policy_errors: tuple[str, ...]
     diagnostic_health_ok: bool
     diagnostic_health_errors: tuple[str, ...]
+    live_sessions: LiveSessionEvaluation
 
     @property
     def integration_decision_distribution(self) -> dict[str, int]:
@@ -204,6 +206,7 @@ class IntegrationEvaluationReport:
 
     def regression_errors(self) -> list[str]:
         errors = list(self.safety.regression_errors())
+        errors.extend(self.live_sessions.errors())
         errors.extend(self.trajectories.regression_errors())
         errors.extend(self.conformance.errors())
         errors.extend(self.failure_regression_errors)
@@ -308,6 +311,7 @@ class IntegrationEvaluationReport:
                 "safety_fixture_core": safety_payload["latency_ms"],
             },
             "friction_categories": self.friction_categories,
+            "live_sessions": self.live_sessions.as_dict(),
             "failure_regression_errors": list(self.failure_regression_errors),
             "workloads": [result.as_dict() for result in self.workloads],
             "errors": self.regression_errors(),
@@ -615,6 +619,7 @@ def run_integration_evaluation(
         policy_errors=tuple(policy_accuracy_errors()),
         diagnostic_health_ok=bool(health["ok"]),
         diagnostic_health_errors=tuple(str(item) for item in health["errors"]),
+        live_sessions=run_live_session_evaluation(),
     )
 
 
@@ -657,6 +662,8 @@ def render_markdown_report(report: IntegrationEvaluationReport) -> str:
         "",
         "## Integration integrity",
         "",
+        f"- Live session trajectories: {len(report.live_sessions.results)}; failures: {len(report.live_sessions.errors())}",
+        f"- Additional in-memory session overhead p50: {report.live_sessions.as_dict()['latency_ms']['additional_in_memory_integration_p50']:.4f} ms (excludes core review and persistence)",
         f"- Conformance checks: {identity['conformance_checks']}",
         f"- Conformance failures: {identity['conformance_failures']}",
         f"- Identity controls detected: {identity['identity_controls_detected']} / {identity['identity_controls']}",
