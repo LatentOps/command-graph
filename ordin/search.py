@@ -126,11 +126,29 @@ def phrase_match_score(query: str, entry: dict) -> tuple[float, str | None]:
     normalized_query = " ".join(tokenize(query))
     if not normalized_query:
         return 0.0, None
+    intents, aliases = _phrase_tokens(entry)
+    return _phrase_match_score(normalized_query, intents, aliases)
+
+
+def _phrase_tokens(entry: dict) -> tuple[list[tuple[str, list[str]]], list[tuple[str, list[str]]]]:
+    return (
+        [(intent, tokenize(intent)) for intent in entry.get("intents", [])],
+        [(alias, tokenize(alias)) for alias in entry.get("aliases", [])],
+    )
+
+
+def _phrase_match_score(
+    normalized_query: str,
+    intents: list[tuple[str, list[str]]],
+    aliases: list[tuple[str, list[str]]],
+) -> tuple[float, str | None]:
+    if not normalized_query:
+        return 0.0, None
 
     best_score = 0.0
     best_reason: str | None = None
-    for intent in entry.get("intents", []):
-        normalized_intent = " ".join(tokenize(intent))
+    for intent, tokens in intents:
+        normalized_intent = " ".join(tokens)
         if not normalized_intent:
             continue
         if normalized_query == normalized_intent:
@@ -141,8 +159,8 @@ def phrase_match_score(query: str, entry: dict) -> tuple[float, str | None]:
                 best_score = score
                 best_reason = f'near intent "{intent}"'
 
-    for alias in entry.get("aliases", []):
-        normalized_alias = " ".join(tokenize(alias))
+    for alias, tokens in aliases:
+        normalized_alias = " ".join(tokens)
         if normalized_alias and normalized_alias in normalized_query:
             score = 3.0
             if score > best_score:
@@ -160,14 +178,20 @@ def document_frequency(commands: list[dict]) -> Counter[str]:
 
 
 def legacy_idf_by_term(commands: list[dict]) -> dict[str, float]:
-    doc_count = len(commands)
-    frequency = document_frequency(commands)
-    return {term: log((doc_count + 1) / (count + 0.5)) + 1.0 for term, count in frequency.items()}
+    return _idf_by_frequency(document_frequency(commands), len(commands), ranker="legacy")
 
 
 def bm25_idf_by_term(commands: list[dict]) -> dict[str, float]:
-    doc_count = len(commands)
-    frequency = document_frequency(commands)
+    return _idf_by_frequency(document_frequency(commands), len(commands), ranker="bm25")
+
+
+def _idf_by_frequency(
+    frequency: Counter[str], doc_count: int, *, ranker: RankerName
+) -> dict[str, float]:
+    if ranker == "legacy":
+        return {
+            term: log((doc_count + 1) / (count + 0.5)) + 1.0 for term, count in frequency.items()
+        }
     return {
         term: log(1.0 + (doc_count - count + 0.5) / (count + 0.5))
         for term, count in frequency.items()
@@ -212,30 +236,34 @@ def _feature_score(
     query: str,
     entry: dict,
     query_tokens: set[str],
+    *,
+    normalized_query: str | None = None,
 ) -> tuple[float, str | None, list[str]]:
     score = 0.0
     signals: list[str] = []
-    phrase_score, phrase_reason = phrase_match_score(query, entry)
+    intents, aliases = _phrase_tokens(entry)
+    phrase_score, phrase_reason = _phrase_match_score(
+        " ".join(tokenize(query)) if normalized_query is None else normalized_query,
+        intents,
+        aliases,
+    )
     score += phrase_score
     if phrase_reason:
         signals.append(phrase_reason)
 
-    for intent in entry.get("intents", []):
-        intent_tokens = set(tokenize(intent))
+    best_intent_overlap = 0
+    for _, tokens in intents:
+        intent_tokens = set(tokens)
         overlap = intent_tokens & query_tokens
         if overlap:
             score += 2.5 * len(overlap)
-    if entry.get("intents"):
-        best_intent_overlap = max(
-            (len(set(tokenize(intent)) & query_tokens) for intent in entry.get("intents", [])),
-            default=0,
-        )
-        if best_intent_overlap:
-            signals.append(f"intent overlap {best_intent_overlap}")
+            best_intent_overlap = max(best_intent_overlap, len(overlap))
+    if best_intent_overlap:
+        signals.append(f"intent overlap {best_intent_overlap}")
 
     alias_overlap_count = 0
-    for alias in entry.get("aliases", []):
-        alias_overlap = set(tokenize(alias)) & query_tokens
+    for _, tokens in aliases:
+        alias_overlap = set(tokens) & query_tokens
         if alias_overlap:
             score += 2.0 * len(alias_overlap)
             alias_overlap_count = max(alias_overlap_count, len(alias_overlap))
@@ -303,20 +331,19 @@ def _search(
     synonyms = load_synonyms()
     expanded = expand_query(query, synonyms)
     commands = load_commands()
-    query_tokens = set(tokenize(query))
+    query_words = tokenize(query)
+    query_tokens = set(query_words)
+    normalized_query = " ".join(query_words)
     environment = environment or detect_environment()
 
-    token_counts_by_command = [command_tokens(entry) for entry in commands]
+    documents = [command_text(entry) for entry in commands]
+    token_counts_by_command = [Counter(tokenize(document)) for document in documents]
     lengths = [sum(counts.values()) for counts in token_counts_by_command]
     average_document_length = sum(lengths) / len(lengths) if lengths else 0.0
-    if ranker == "bm25":
-        idf = bm25_idf_by_term(commands)
-    else:
-        idf = legacy_idf_by_term(commands)
-
-    documents_by_command = {
-        str(entry.get("command", "")): command_text(entry) for entry in commands
-    }
+    frequency: Counter[str] = Counter()
+    for counts in token_counts_by_command:
+        frequency.update(counts.keys())
+    idf = _idf_by_frequency(frequency, len(commands), ranker=ranker)
     results: list[SearchResult] = []
     for entry, token_counts, document_length in zip(commands, token_counts_by_command, lengths):
         matched_terms = {term for term in expanded if token_counts.get(term, 0) > 0}
@@ -326,7 +353,9 @@ def _search(
             matched_terms.add(command_name)
             strong_terms.add(command_name)
 
-        feature_score, phrase_reason, feature_signals = _feature_score(query, entry, query_tokens)
+        feature_score, phrase_reason, feature_signals = _feature_score(
+            query, entry, query_tokens, normalized_query=normalized_query
+        )
         if ranker == "bm25":
             lexical_score = _bm25_lexical_score(
                 expanded,
@@ -384,6 +413,9 @@ def _search(
     if semantic_reranker is not None:
         if ranker != "bm25":
             raise ValueError("semantic reranking is supported only on the BM25 path")
+        documents_by_command = {
+            str(entry.get("command", "")): document for entry, document in zip(commands, documents)
+        }
         return _semantic_rerank(
             query,
             ranked,

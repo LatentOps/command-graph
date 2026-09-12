@@ -2,6 +2,11 @@
 
 Ordin uses a deterministic BM25-style lexical ranker for intent-to-command retrieval. The ranker remains local and dependency-free.
 
+Search prepares each command's lexical tokens once per query and reuses them
+for document frequency and scoring. Intent and alias tokens are also reused
+across phrase and overlap scoring. Command data, enabled packs, and local
+executable availability are read again for subsequent queries.
+
 ## Ranking Signals
 
 The default search score combines:
