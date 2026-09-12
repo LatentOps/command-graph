@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import os
 import queue
 import subprocess
@@ -25,6 +26,7 @@ from .tool_calls import load_tool_semantics
 
 MCP_PROXY_RUNTIME = "mcp-proxy"
 MAX_MCP_MESSAGE_BYTES = 10 * 1024 * 1024
+MAX_MCP_JSON_DEPTH = 64
 MAX_LOCAL_EVENT_BYTES = 1_048_576
 MAX_PROXY_REASON_LENGTH = 4096
 APPROVAL_REQUIRED_CODE = -32040
@@ -35,6 +37,8 @@ PARSE_ERROR_CODE = -32700
 
 def _request_id_key(value: Any) -> str | None:
     if isinstance(value, bool) or value is None or not isinstance(value, (str, int, float)):
+        return None
+    if isinstance(value, float) and not math.isfinite(value):
         return None
     return json.dumps(value, ensure_ascii=False, separators=(",", ":"))
 
@@ -406,17 +410,53 @@ def _read_bounded_line(stream: IO[bytes]) -> bytes | None:
     raise ValueError(f"MCP stdio message exceeds maximum size {MAX_MCP_MESSAGE_BYTES} bytes")
 
 
+def _unique_json_members(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("MCP JSON contains duplicate object members")
+        result[key] = value
+    return result
+
+
+def _finite_json_number(text: str) -> float:
+    number = float(text)
+    if not math.isfinite(number):
+        raise ValueError("MCP JSON numbers must be finite")
+    return number
+
+
+def _validate_json_depth(payload: Mapping[str, Any]) -> None:
+    pending: list[tuple[Any, int]] = [(payload, 0)]
+    while pending:
+        value, depth = pending.pop()
+        if not isinstance(value, (dict, list)):
+            continue
+        if depth > MAX_MCP_JSON_DEPTH:
+            raise ValueError(f"MCP JSON nesting exceeds maximum depth {MAX_MCP_JSON_DEPTH}")
+        children = value.values() if isinstance(value, dict) else value
+        pending.extend((child, depth + 1) for child in children)
+
+
 def _parse_jsonrpc_line(line: bytes) -> Mapping[str, Any]:
     try:
         text = line.decode("utf-8")
     except UnicodeDecodeError as exc:
         raise ValueError("MCP stdio message must be UTF-8") from exc
     try:
-        payload = json.loads(text)
+        payload = json.loads(
+            text,
+            object_pairs_hook=_unique_json_members,
+            parse_constant=_finite_json_number,
+            parse_float=_finite_json_number,
+        )
     except json.JSONDecodeError as exc:
         raise ValueError(f"invalid MCP JSON at line {exc.lineno} column {exc.colno}") from exc
+    except RecursionError as exc:
+        raise ValueError("MCP JSON nesting is too deep") from exc
     if not isinstance(payload, Mapping):
         raise ValueError("MCP stdio requires one JSON-RPC object per line")
+    _validate_json_depth(payload)
     return payload
 
 

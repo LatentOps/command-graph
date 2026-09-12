@@ -190,8 +190,9 @@ and redaction behavior.
 
 CI runs the test suite on Python 3.10–3.13, validates a built wheel, checks Linux
 installation, and runs safety, trajectory, regression, and integration gates.
-The [local evaluation report](docs/integration-evaluation.md) includes its
-workloads, revision, environment, and measurement limits.
+The [evaluation reports](docs/integration-evaluation.md) separate core review,
+adapter handling, and local subprocess overhead. Each records its workloads,
+revision, environment, and measurement limits.
 
 These checks cover finite fixtures and recognized semantics. An `allow` decision
 is not proof that an arbitrary action is safe. Keep execution permissions and

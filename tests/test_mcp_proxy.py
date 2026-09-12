@@ -9,7 +9,9 @@ from ordin.api import Ordin
 from ordin.mcp_proxy import (
     APPROVAL_REQUIRED_CODE,
     BLOCKED_CODE,
+    MAX_MCP_JSON_DEPTH,
     MCPStdioSafetyProxy,
+    _parse_jsonrpc_line,
 )
 from ordin.tool_calls import ToolResourceBinding, ToolSemanticRule, ToolSemanticsRegistry
 
@@ -41,6 +43,119 @@ def _read_semantics(server="fixture"):
             ),
         ),
     )
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        b'{"jsonrpc":"2.0","id":1,"method":"tools/call","method":"tools/list"}',
+        b'{"jsonrpc":"2.0","id":1,"id":2,"method":"tools/list"}',
+        b'{"jsonrpc":"2.0","method":"tools/call","params":{"name":"delete","name":"read"}}',
+        b'{"jsonrpc":"2.0","params":{"arguments":{"path":"/a","path":"/b"}}}',
+        rb'{"jsonrpc":"2.0","method":"tools/call","meth\u006fd":"tools/list"}',
+    ],
+)
+def test_jsonrpc_parser_rejects_duplicate_members(line):
+    with pytest.raises(ValueError, match="duplicate"):
+        _parse_jsonrpc_line(line)
+
+
+@pytest.mark.parametrize("number", [b"NaN", b"Infinity", b"-Infinity", b"1e9999", b"-1e9999"])
+def test_jsonrpc_parser_rejects_nonfinite_numbers(number):
+    with pytest.raises(ValueError, match="finite"):
+        _parse_jsonrpc_line(b'{"jsonrpc":"2.0","params":{"value":' + number + b"}}")
+
+
+def test_jsonrpc_parser_rejects_excessive_nesting_as_a_protocol_error():
+    line = b'{"jsonrpc":"2.0","params":' + b"[" * 2000 + b"0" + b"]" * 2000 + b"}"
+    with pytest.raises(ValueError, match="nesting"):
+        _parse_jsonrpc_line(line)
+
+
+def test_jsonrpc_parser_allows_reused_members_in_distinct_objects():
+    message = _parse_jsonrpc_line(b'{"jsonrpc":"2.0","params":[{"value":1.5},{"value":2.5}]}')
+    assert message["params"] == [{"value": 1.5}, {"value": 2.5}]
+
+
+def test_jsonrpc_parser_enforces_the_documented_nesting_boundary():
+    prefix = b'{"jsonrpc":"2.0","params":'
+    nested = b"[" * MAX_MCP_JSON_DEPTH + b"0" + b"]" * MAX_MCP_JSON_DEPTH
+    assert _parse_jsonrpc_line(prefix + nested + b"}")["jsonrpc"] == "2.0"
+    with pytest.raises(ValueError, match="nesting"):
+        _parse_jsonrpc_line(prefix + b"[" + nested + b"]}")
+
+
+@pytest.mark.parametrize("request_id", [float("nan"), float("inf"), float("-inf")])
+def test_nonfinite_request_ids_are_rejected_by_the_direct_proxy_api(request_id):
+    proxy = MCPStdioSafetyProxy(server_id="fixture")
+    decision = proxy.process_client_message(_call(request_id=request_id))
+    assert not decision.forward
+    assert decision.response["error"]["code"] == -32600
+
+
+def test_stdio_proxy_rejects_ambiguous_client_json_and_continues():
+    server = (
+        "import json,sys\n"
+        "for line in sys.stdin:\n"
+        " message=json.loads(line)\n"
+        " print(json.dumps({'jsonrpc':'2.0','id':message['id'],"
+        "'result':{'received':line.rstrip('\\n')}}),flush=True)\n"
+    )
+    ambiguous = '{"jsonrpc":"2.0","id":1,"method":"tools/call","method":"tools/list"}\n'
+    valid = '{ "jsonrpc": "2.0", "id": 2, "method": "tools/list" }'
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "ordin.mcp_proxy",
+            "--server-id",
+            "fixture",
+            "--",
+            sys.executable,
+            "-c",
+            server,
+        ],
+        input=ambiguous + valid + "\n",
+        text=True,
+        capture_output=True,
+        timeout=10,
+    )
+    assert result.returncode == 0, result.stderr
+    messages = [json.loads(line) for line in result.stdout.splitlines()]
+    assert len(messages) == 2
+    assert messages[0]["id"] is None
+    assert messages[0]["error"]["code"] == -32700
+    assert messages[1] == {"jsonrpc": "2.0", "id": 2, "result": {"received": valid}}
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        '{"jsonrpc":"2.0","id":1,"result":{},"result":{"isError":true}}',
+        '{"jsonrpc":"2.0","id":1,"result":{"value":NaN}}',
+    ],
+)
+def test_stdio_proxy_does_not_forward_ambiguous_upstream_json(line):
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "ordin.mcp_proxy",
+            "--server-id",
+            "fixture",
+            "--",
+            sys.executable,
+            "-c",
+            f"print({line!r}, flush=True)",
+        ],
+        input="",
+        text=True,
+        capture_output=True,
+        timeout=10,
+    )
+    assert result.returncode == 1
+    assert result.stdout == ""
+    assert "upstream protocol error" in result.stderr
 
 
 def test_non_tool_protocol_messages_forward_unchanged():
