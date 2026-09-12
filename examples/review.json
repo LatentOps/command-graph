@@ -1,4 +1,5 @@
 {
+  "schema_version": "ordin.review_request.v1",
   "intent": "clean dependencies",
   "command": "rm -rf node_modules",
   "context": {

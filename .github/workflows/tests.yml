@@ -57,6 +57,13 @@ jobs:
           --revision "${GITHUB_SHA}"
           --json-out integration-evaluation-report.json
           --markdown-out integration-evaluation-report.md
+      - name: Run executable runtime integration evaluation
+        run: >-
+          python scripts/run_runtime_evaluation.py
+          --revision "${GITHUB_SHA}"
+          --repetitions 5
+          --json-out runtime-integration-evaluation-report.json
+          --markdown-out runtime-integration-evaluation-report.md
       - name: Upload safety benchmark reports
         uses: actions/upload-artifact@v4
         with:
@@ -67,6 +74,8 @@ jobs:
             regression-replay-report.json
             integration-evaluation-report.json
             integration-evaluation-report.md
+            runtime-integration-evaluation-report.json
+            runtime-integration-evaluation-report.md
           if-no-files-found: error
 
   test:
