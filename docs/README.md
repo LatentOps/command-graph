@@ -41,6 +41,10 @@ The Python API reviews actions but never executes them.
 
 ## I want to gate an AI agent
 
+- [Integration starter kit](../examples/integrations/README.md)
+- [Claude Code hooks](claude-code-integration.md)
+- [MCP safety proxy](mcp-safety-proxy.md)
+- [Integration diagnostics](integration-troubleshooting.md)
 - [Agent runtime integration](agent-integration.md)
 - [Tool and MCP adapters](tool-and-mcp-adapters.md)
 - [Execution capability profiles and observations](execution-evidence.md)
@@ -58,7 +62,9 @@ The canonical integration is:
 agent proposes action -> Ordin -> execute / escalate / deny -> caller runtime
 ```
 
-Ordin does not become the agent framework, shell executor, sandbox, MCP transport, or approval service.
+Review APIs return decisions without executing actions. The optional shell
+wrapper executes reviewed commands, and the MCP proxy relays stdio traffic to
+its configured server. The runtime owns sandboxing, credentials, and approvals.
 
 ## I want to understand how Ordin decides
 
@@ -75,6 +81,11 @@ Ordin does not become the agent framework, shell executor, sandbox, MCP transpor
 
 ## I want to evaluate Ordin
 
+- [Local integration evaluation and recorded reports](integration-evaluation.md)
+- [Adapter conformance](integration-conformance.md)
+- [Agent trajectory corpus](agent-trajectory-corpus.md)
+- [Failure replay](failure-regressions.md)
+- [Extended regression promotion](regression-promotion.md)
 - [Safety benchmark and adversarial fuzzing](safety-benchmark.md)
 - [Search quality benchmark](search-quality-benchmark.md)
 
