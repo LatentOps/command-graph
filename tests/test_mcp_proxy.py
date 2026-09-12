@@ -88,6 +88,17 @@ def test_server_identity_mismatch_loses_trusted_semantics():
     assert decision.response["error"]["data"]["ordin"]["decision"] == "ask"
 
 
+def test_tool_identity_whitespace_is_not_forwarded_with_trusted_semantics():
+    gate = AgentGate(Ordin(tool_semantics=_read_semantics()))
+    proxy = MCPStdioSafetyProxy(server_id="fixture", gate=gate)
+
+    decision = proxy.process_client_message(_call(name=" read_file "))
+
+    assert decision.forward is False
+    assert decision.response["error"]["code"] == APPROVAL_REQUIRED_CODE
+    assert proxy.pending_count == 0
+
+
 def test_explicit_shell_block_never_reaches_upstream():
     proxy = MCPStdioSafetyProxy(
         server_id="fixture",

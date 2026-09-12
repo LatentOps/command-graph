@@ -47,6 +47,10 @@ exit code `1`. Client EOF still gives the server the configured
 
 `--server-id` is required and is part of the safety identity. Trusted semantics match an exact `(kind="mcp", server, tool)` tuple. A semantics file for another server identity does not transfer trust to this proxy instance.
 
+Identities retain their original whitespace. For example, `read_file` and
+` read_file ` are different tools; the latter cannot inherit the former's
+trusted semantics or shell mapping.
+
 ## Tool semantics
 
 Without trusted local semantics, a generic MCP tool remains uncertain and Ordin returns an approval-required error instead of forwarding it.

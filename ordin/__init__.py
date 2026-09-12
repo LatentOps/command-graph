@@ -41,6 +41,12 @@ from .agent import AgentDecision, AgentDisposition, AgentGate, AgentReview
 from .api import Ordin
 from .audit import AuditEvent, AuditSink, AuditVerification, JsonlAuditSink, verify_audit_jsonl
 from .context import ExecutionContext, ReviewRequest
+from .diagnostics import (
+    DIAGNOSTIC_SCHEMA_VERSION,
+    INTEGRATION_HEALTH_SCHEMA_VERSION,
+    action_review_diagnostic,
+    integration_health,
+)
 from .execution import (
     ActionObservation,
     ExecutionCapabilityProfile,
@@ -78,7 +84,9 @@ __all__ = [
     "ACTION_REVIEW_SCHEMA_VERSION",
     "ACTION_TRACE_SCHEMA_VERSION",
     "AUDIT_EVENT_SCHEMA_VERSION",
+    "DIAGNOSTIC_SCHEMA_VERSION",
     "EXECUTION_CAPABILITIES_SCHEMA_VERSION",
+    "INTEGRATION_HEALTH_SCHEMA_VERSION",
     "PROVENANCE_SCHEMA_VERSION",
     "OBSERVATION_HISTORY_SCHEMA_VERSION",
     "ActionEnvelope",
@@ -143,8 +151,10 @@ __all__ = [
     "ToolSemanticsRegistry",
     "TraceAction",
     "__version__",
+    "action_review_diagnostic",
     "default_temporal_policy",
     "derive_capabilities",
+    "integration_health",
     "load_action_policy",
     "load_temporal_policy",
     "load_tool_semantics",
