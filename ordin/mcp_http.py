@@ -839,7 +839,7 @@ class _MCPHTTPHandler(BaseHTTPRequestHandler):
             if not self._sent:
                 self._json(exc.status, {"error": exc.code})
         except (TimeoutError, socket.timeout):
-            if session is not None and self.command == "POST" and not self._sent:
+            if session is not None and self.command == "POST" and not self._resumable_seen:
                 session.failed = True
             if not self._sent:
                 self._json(504, {"error": "upstream_or_client_timeout"})
@@ -899,6 +899,7 @@ class _MCPHTTPHandler(BaseHTTPRequestHandler):
 
     def _check_upstream_deadline(self) -> None:
         if self._upstream_timed_out.is_set() or time.monotonic() >= self._upstream_expires_at:
+            self._upstream_timed_out.set()
             raise TimeoutError("upstream deadline exceeded")
 
     def _stream(
