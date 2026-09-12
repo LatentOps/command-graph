@@ -27,6 +27,7 @@ KNOWN_TEMPLATE_FIELDS = {
     "branch",
 }
 SCHEMA_FILES = {
+    "codex_mcp_map": "codex-mcp-map.v1.schema.json",
     "mcp_contract_lock": "mcp-contract-lock.v1.schema.json",
     "integration_session": "integration-session.v1.schema.json",
     "command_card": "command-card.v1.schema.json",

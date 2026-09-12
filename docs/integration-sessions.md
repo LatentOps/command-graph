@@ -112,7 +112,7 @@ engine and cannot erase a predicted effect or downgrade a decision.
 
 ## Validation
 
-The permanent integration evaluation includes 12 synthetic live-session controls
+The permanent integration evaluation includes 18 synthetic live-session controls
 through the maintained integration methods. It reports temporal detections, false
 detections, observation linkage, isolation/reset failures, and core review versus
 additional in-memory integration latency. Persistence/concurrency/privacy and real

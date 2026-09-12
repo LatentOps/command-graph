@@ -37,6 +37,7 @@ repos:
           ordin/api.py
           ordin/audit.py
           ordin/claude_code.py
+          ordin/codex.py
           ordin/execution.py
           ordin/mcp_proxy.py
           ordin/mcp_contracts.py

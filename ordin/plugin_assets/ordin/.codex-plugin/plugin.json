@@ -1,0 +1,17 @@
+{
+  "name": "ordin",
+  "version": "0.1.0",
+  "description": "Local command and tool review through Ordin's Codex lifecycle integration.",
+  "author": {
+    "name": "LatentOps"
+  },
+  "interface": {
+    "displayName": "Ordin",
+    "shortDescription": "Review commands and tool calls before execution.",
+    "longDescription": "Use Ordin's deterministic policy engine with Codex hooks, bounded local session state, and redacted observations.",
+    "developerName": "LatentOps",
+    "category": "Productivity",
+    "capabilities": [],
+    "defaultPrompt": "Check the Ordin integration setup."
+  }
+}

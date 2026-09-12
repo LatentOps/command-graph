@@ -47,13 +47,14 @@ dev = [
 [project.scripts]
 ordin = "ordin.entrypoint:main"
 ordin-claude-hook = "ordin.claude_code:main"
+ordin-codex-hook = "ordin.codex:main"
 ordin-mcp-proxy = "ordin.mcp_proxy:main"
 
 [tool.setuptools]
 packages = ["ordin", "ordin.analyzers"]
 
 [tool.setuptools.package-data]
-ordin = ["resources/*.json", "resources/**/*.json"]
+ordin = ["resources/*.json", "resources/**/*.json", "plugin_assets/ordin/.codex-plugin/*.json", "plugin_assets/ordin/hooks/*.json", "plugin_assets/ordin/scripts/*.py"]
 
 [tool.ruff]
 target-version = "py310"

@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://latentops.dev/schemas/ordin/codex-mcp-map.v1.schema.json",
+  "title": "Ordin Codex MCP Mapping v1",
+  "type": "object",
+  "required": ["schema_version", "tools"],
+  "properties": {
+    "schema_version": {"const": "ordin.codex_mcp_map.v1"},
+    "tools": {
+      "type": "array", "maxItems": 256,
+      "items": {
+        "type": "object", "required": ["hook_name", "server", "tool"],
+        "properties": {
+          "hook_name": {"type": "string", "pattern": "^mcp__.+$", "maxLength": 256},
+          "server": {"type": "string", "minLength": 1, "maxLength": 256},
+          "tool": {"type": "string", "minLength": 1, "maxLength": 256}
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

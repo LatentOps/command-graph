@@ -1,0 +1,10 @@
+{
+  "description": "Ordin local review. Requires the Ordin Python package and trusted hooks.",
+  "hooks": {
+    "SessionStart": [{"hooks": [{"type": "command", "command": "python3 \"${PLUGIN_ROOT}/scripts/hook.py\" session-start || exit 2", "timeout": 30}]}],
+    "PreToolUse": [{"matcher": "*", "hooks": [{"type": "command", "command": "python3 \"${PLUGIN_ROOT}/scripts/hook.py\" pre || exit 2", "timeout": 30}]}],
+    "PermissionRequest": [{"matcher": "*", "hooks": [{"type": "command", "command": "python3 \"${PLUGIN_ROOT}/scripts/hook.py\" permission || exit 2", "timeout": 30}]}],
+    "PostToolUse": [{"matcher": "*", "hooks": [{"type": "command", "command": "python3 \"${PLUGIN_ROOT}/scripts/hook.py\" post || exit 2", "timeout": 30}]}],
+    "SessionEnd": [{"hooks": [{"type": "command", "command": "python3 \"${PLUGIN_ROOT}/scripts/hook.py\" session-end || exit 2", "timeout": 3}]}]
+  }
+}
