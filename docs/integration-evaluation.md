@@ -94,9 +94,13 @@ regression replay under the `ordin-safety-benchmark` artifact.
 
 The checked-in [core sample report](reports/integration-evaluation.md) and
 [JSON results](reports/integration-evaluation.json) remain a recorded CI
-snapshot for the core/adapter layer. Runtime report snapshots are published only
-from a successful CI execution of the executable-boundary study so measured
-latency is tied to a concrete runner and revision rather than fabricated.
+snapshot for the core/adapter layer. The checked-in
+[runtime report](reports/runtime-integration-evaluation.md) and
+[runtime JSON](reports/runtime-integration-evaluation.json) were exported from
+successful workflow run `34666488574`, which exercised the executable-boundary
+study on GitHub's Ubuntu runner. The report records the exact evaluated merge
+revision and environment so its latency numbers are not presented as timeless
+or cross-machine results. Permanent CI regenerates both layers on every change.
 
 ## Setup and developer-experience findings
 
