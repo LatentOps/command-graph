@@ -4,6 +4,7 @@ import argparse
 import hashlib
 import json
 import os
+import queue
 import subprocess
 import sys
 import threading
@@ -465,6 +466,30 @@ def _relay_upstream_stderr(process: subprocess.Popen[bytes], failed: threading.E
         failed.set()
 
 
+def _read_client_stdin(
+    stream: IO[bytes],
+    messages: queue.Queue[bytes | ValueError | OSError | None],
+    stopped: threading.Event,
+) -> None:
+    # Use an owned, unbuffered descriptor so an idle daemon reader cannot hold
+    # sys.stdin's buffered lock during interpreter shutdown.
+    with stream:
+        while not stopped.is_set():
+            item: bytes | ValueError | OSError | None
+            try:
+                item = _read_bounded_line(stream)
+            except (ValueError, OSError) as exc:
+                item = exc
+            while not stopped.is_set():
+                try:
+                    messages.put(item, timeout=0.1)
+                    break
+                except queue.Full:
+                    continue
+            if item is None or isinstance(item, OSError):
+                return
+
+
 def run_stdio_proxy(
     proxy: MCPStdioSafetyProxy,
     command: Sequence[str],
@@ -501,17 +526,35 @@ def run_stdio_proxy(
     stdout_thread.start()
     stderr_thread.start()
 
+    messages: queue.Queue[bytes | ValueError | OSError | None] = queue.Queue(maxsize=1)
+    stopped = threading.Event()
+
     exit_code = 0
     try:
-        while not failed.is_set():
+        client_stream = os.fdopen(os.dup(sys.stdin.fileno()), "rb", buffering=0)
+        stdin_thread = threading.Thread(
+            target=_read_client_stdin,
+            args=(client_stream, messages, stopped),
+            name="ordin-mcp-client-stdin",
+            daemon=True,
+        )
+        stdin_thread.start()
+        while not failed.is_set() and process.poll() is None:
             try:
-                line = _read_bounded_line(sys.stdin.buffer)
-            except ValueError as exc:
-                error = _jsonrpc_error(None, code=PARSE_ERROR_CODE, message=str(exc))
+                item = messages.get(timeout=0.1)
+            except queue.Empty:
+                continue
+            if isinstance(item, OSError):
+                print(f"ordin-mcp-proxy: client read failed: {item}", file=sys.stderr)
+                failed.set()
+                break
+            if isinstance(item, ValueError):
+                error = _jsonrpc_error(None, code=PARSE_ERROR_CODE, message=str(item))
                 with output_lock:
                     sys.stdout.buffer.write(_encode_jsonrpc(error))
                     sys.stdout.buffer.flush()
                 continue
+            line = item
             if line is None:
                 break
             try:
@@ -537,6 +580,7 @@ def run_stdio_proxy(
                     sys.stdout.buffer.write(_encode_jsonrpc(decision.response))
                     sys.stdout.buffer.flush()
     finally:
+        stopped.set()
         try:
             process.stdin.close()
         except OSError:

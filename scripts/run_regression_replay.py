@@ -4,11 +4,11 @@ import argparse
 import json
 from pathlib import Path
 
-from ordin.regression_promotion import load_regression_replays, run_regression_replays
+from ordin.regression_replay import load_failure_regressions, run_failure_regressions
 
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_CORPUS = ROOT / "benchmarks" / "regressions.jsonl"
+DEFAULT_CORPUS = ROOT / "benchmarks" / "failure_regressions.jsonl"
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -16,25 +16,20 @@ def _parser() -> argparse.ArgumentParser:
         description="Replay promoted Ordin integration and safety regressions."
     )
     parser.add_argument("--corpus", type=Path, default=DEFAULT_CORPUS)
-    parser.add_argument("--id", dest="replay_id", help="Replay one promoted regression by id")
+    parser.add_argument("--case", dest="case_id")
     parser.add_argument("--json-out", type=Path)
     return parser
 
 
 def main() -> int:
     args = _parser().parse_args()
-    replays = load_regression_replays(args.corpus)
-    report = run_regression_replays(replays, replay_id=args.replay_id)
+    cases = load_failure_regressions(args.corpus, case_id=args.case_id)
+    report = run_failure_regressions(cases)
     payload = report.as_dict()
 
-    print(f"Regressions               {payload['passed']} / {payload['cases']}")
-    print(f"Critical false allows     {payload['critical_false_allows']}")
+    print(f"Regression cases          {payload['matches']} / {payload['cases']}")
+    print(f"Critical misses           {payload['critical_misses']}")
     print("Failure classes           " + ", ".join(sorted(payload["failure_class_coverage"])))
-    for result in payload["results"]:
-        print(
-            f"- {result['id']}: {'PASS' if result['passed'] else 'FAIL'} "
-            f"({result['failure_class']}, {result['latency_ms']:.2f}ms)"
-        )
 
     if args.json_out is not None:
         args.json_out.write_text(

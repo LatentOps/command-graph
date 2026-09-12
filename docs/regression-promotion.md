@@ -2,6 +2,14 @@
 
 Real integration failures should become permanent deterministic regressions instead of one-off patches.
 
+The extended promotion API is `ordin.regression_promotion`. It complements the
+existing `ordin.regression_replay` API and `scripts/run_regression_replay.py`;
+their `ordin.regression_case.v1` fixtures remain supported unchanged.
+
+Policy, semantics, observation, and extra expected-code overrides apply to
+single-action safety replays. Trajectory replays reject those overrides, which
+the trajectory runner cannot apply, and use the expectations in their steps.
+
 The promotion loop is:
 
 ```text

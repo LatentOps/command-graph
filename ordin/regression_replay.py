@@ -1,317 +1,192 @@
 from __future__ import annotations
 
 import json
+import re
+from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
-from time import perf_counter_ns
-from typing import Any, Literal, Mapping, cast
+from typing import Any, Mapping
 
-from .action_policy import ActionPolicySet
-from .api import Ordin
-from .execution import ActionObservation, ObservationHistory
-from .policy import Decision
-from .safety_benchmark import SafetyFixture
-from .temporal import default_temporal_policy
-from .tool_calls import ToolSemanticsRegistry
-from .trajectory_corpus import AgentTrajectory, run_agent_trajectory_corpus
+from .trajectory_corpus import (
+    AgentTrajectory,
+    TrajectoryResult,
+    run_agent_trajectory_corpus,
+)
 
 
-REGRESSION_REPLAY_SCHEMA_VERSION = "ordin.regression_replay.v1"
-RegressionKind = Literal["safety", "trajectory"]
-FailureClass = Literal[
-    "false_allow",
-    "critical_miss",
-    "false_block",
-    "unnecessary_escalation",
-    "semantic_effect",
-    "semantic_resource",
-    "parser_normalizer",
-    "identity",
-    "policy",
-    "temporal_policy",
-    "provenance",
-    "post_action_observation",
-    "integration_translation",
-    "performance",
-]
-Severity = Literal["low", "medium", "high", "critical"]
+REGRESSION_SCHEMA_VERSION = "ordin.regression_case.v1"
+REPORT_SCHEMA_VERSION = "ordin.regression_report.v1"
 VALID_FAILURE_CLASSES = frozenset(
     {
         "false_allow",
-        "critical_miss",
         "false_block",
-        "unnecessary_escalation",
         "semantic_effect",
-        "semantic_resource",
         "parser_normalizer",
-        "identity",
-        "policy",
-        "temporal_policy",
-        "provenance",
+        "identity_handling",
+        "policy_temporal",
+        "provenance_audit",
         "post_action_observation",
         "integration_translation",
-        "performance",
+        "performance_regression",
     }
 )
-VALID_SEVERITIES = frozenset({"low", "medium", "high", "critical"})
-MAX_REPLAYS = 512
-MAX_OBSERVATIONS = 32
-MAX_EXPECTED_CODES = 64
-SENSITIVE_VALUE_PREFIXES = ("sk-", "ghp_", "github_pat_", "Bearer ", "AKIA")
-SENSITIVE_KEY_FRAGMENTS = (
+_SENSITIVE_KEY_PARTS = (
     "password",
     "passwd",
+    "authorization",
+    "cookie",
     "api_key",
     "apikey",
     "access_token",
     "refresh_token",
-    "secret_key",
     "private_key",
 )
-REDACTED_VALUES = frozenset({"<redacted>", "redacted", "***", "[redacted]"})
+_SENSITIVE_VALUE_PATTERNS = (
+    re.compile(r"\bgh[pousr]_[A-Za-z0-9_]{12,}\b"),
+    re.compile(r"\bsk-[A-Za-z0-9_-]{16,}\b"),
+    re.compile(r"\bAKIA[A-Z0-9]{16}\b"),
+    re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----"),
+)
 
 
-def _required_text(value: Any, *, name: str) -> str:
+def _non_empty_text(value: Any, *, name: str) -> str:
     if not isinstance(value, str) or not value.strip():
         raise ValueError(f"{name} must be non-empty text")
-    return value.strip()
+    return value
 
 
-def _string_tuple(value: Any, *, name: str, maximum: int) -> tuple[str, ...]:
-    if not isinstance(value, list) or len(value) > maximum:
-        raise ValueError(f"{name} must be an array with at most {maximum} items")
-    result: list[str] = []
-    for item in value:
-        text = _required_text(item, name=f"{name} item")
-        if text not in result:
-            result.append(text)
-    return tuple(result)
-
-
-def _sanitization_errors(value: Any, *, path: str = "$") -> list[str]:
-    errors: list[str] = []
+def _scan_sensitive(value: Any, *, path: str = "$") -> None:
     if isinstance(value, Mapping):
         for key, item in value.items():
-            key_text = str(key)
-            child_path = f"{path}.{key_text}"
-            lower_key = key_text.lower()
-            if any(fragment in lower_key for fragment in SENSITIVE_KEY_FRAGMENTS):
-                if isinstance(item, str) and item.lower() not in REDACTED_VALUES:
-                    errors.append(f"{child_path} contains a non-redacted sensitive field")
-            errors.extend(_sanitization_errors(item, path=child_path))
-    elif isinstance(value, list):
+            key_text = str(key).lower()
+            if any(part in key_text for part in _SENSITIVE_KEY_PARTS):
+                raise ValueError(
+                    f"sensitive field is not allowed in regression fixture: {path}.{key}"
+                )
+            _scan_sensitive(item, path=f"{path}.{key}")
+        return
+    if isinstance(value, list):
         for index, item in enumerate(value):
-            errors.extend(_sanitization_errors(item, path=f"{path}[{index}]"))
-    elif isinstance(value, str):
-        if value.startswith(SENSITIVE_VALUE_PREFIXES):
-            errors.append(f"{path} contains a credential-like value")
-    return errors
+            _scan_sensitive(item, path=f"{path}[{index}]")
+        return
+    if isinstance(value, str):
+        for pattern in _SENSITIVE_VALUE_PATTERNS:
+            if pattern.search(value):
+                raise ValueError(
+                    f"sensitive-looking value is not allowed in regression fixture: {path}"
+                )
 
 
 @dataclass(frozen=True)
-class RegressionReplay:
+class FailureRegressionCase:
     id: str
-    failure_class: FailureClass
-    severity: Severity
+    failure_class: str
     invariant: str
-    why_it_matters: str
-    kind: RegressionKind
-    safety: SafetyFixture | None = None
-    trajectory: AgentTrajectory | None = None
-    tool_semantics: ToolSemanticsRegistry | None = None
-    action_policy: ActionPolicySet | None = None
-    observations: tuple[ActionObservation, ...] = ()
-    expected_trajectory_categories: tuple[str, ...] = ()
-    expected_provenance_codes: tuple[str, ...] = ()
-    max_latency_ms: float | None = None
-    origin: str | None = None
-    schema_version: str = REGRESSION_REPLAY_SCHEMA_VERSION
+    source: str
+    trajectory: AgentTrajectory
+    schema_version: str = REGRESSION_SCHEMA_VERSION
 
     @classmethod
-    def from_dict(cls, payload: Mapping[str, Any]) -> "RegressionReplay":
-        if payload.get("schema_version") != REGRESSION_REPLAY_SCHEMA_VERSION:
-            raise ValueError(
-                f"unsupported regression replay schema: {payload.get('schema_version')!r}"
-            )
-        sanitization_errors = _sanitization_errors(payload)
-        if sanitization_errors:
-            raise ValueError("unsafe regression fixture: " + "; ".join(sanitization_errors))
-
-        replay_id = _required_text(payload.get("id"), name="regression id")
-        failure_class = payload.get("failure_class")
-        severity = payload.get("severity")
-        invariant = _required_text(payload.get("invariant"), name=f"{replay_id} invariant")
-        why_it_matters = _required_text(
-            payload.get("why_it_matters"), name=f"{replay_id} why_it_matters"
-        )
-        kind = payload.get("kind")
+    def from_dict(cls, payload: Mapping[str, Any]) -> "FailureRegressionCase":
+        _scan_sensitive(payload)
+        if payload.get("schema_version") != REGRESSION_SCHEMA_VERSION:
+            raise ValueError(f"unsupported regression schema: {payload.get('schema_version')!r}")
+        case_id = _non_empty_text(payload.get("id"), name="regression id")
+        failure_class = _non_empty_text(payload.get("failure_class"), name="failure_class")
         if failure_class not in VALID_FAILURE_CLASSES:
             raise ValueError(
-                f"{replay_id} failure_class must be one of {sorted(VALID_FAILURE_CLASSES)}"
+                f"regression {case_id!r} failure_class must be one of "
+                f"{sorted(VALID_FAILURE_CLASSES)}"
             )
-        if severity not in VALID_SEVERITIES:
-            raise ValueError(f"{replay_id} severity must be one of {sorted(VALID_SEVERITIES)}")
-        if kind not in {"safety", "trajectory"}:
-            raise ValueError(f"{replay_id} kind must be safety or trajectory")
-
-        safety_raw = payload.get("safety")
+        invariant = _non_empty_text(payload.get("invariant"), name="invariant")
+        source = _non_empty_text(payload.get("source"), name="source")
         trajectory_raw = payload.get("trajectory")
-        semantics_raw = payload.get("tool_semantics")
-        policy_raw = payload.get("action_policy")
-        observations_raw = payload.get("observations", [])
-        expected_trajectory_categories = _string_tuple(
-            payload.get("expected_trajectory_categories", []),
-            name=f"{replay_id} expected_trajectory_categories",
-            maximum=MAX_EXPECTED_CODES,
-        )
-        expected_provenance_codes = _string_tuple(
-            payload.get("expected_provenance_codes", []),
-            name=f"{replay_id} expected_provenance_codes",
-            maximum=MAX_EXPECTED_CODES,
-        )
-        max_latency_ms = payload.get("max_latency_ms")
-        origin_raw = payload.get("origin")
-
-        if kind == "safety":
-            if not isinstance(safety_raw, Mapping) or trajectory_raw is not None:
-                raise ValueError(f"{replay_id} safety replay requires only a safety object")
-        elif not isinstance(trajectory_raw, Mapping) or safety_raw is not None:
-            raise ValueError(f"{replay_id} trajectory replay requires only a trajectory object")
-        if semantics_raw is not None and not isinstance(semantics_raw, Mapping):
-            raise ValueError(f"{replay_id} tool_semantics must be an object or null")
-        if policy_raw is not None and not isinstance(policy_raw, Mapping):
-            raise ValueError(f"{replay_id} action_policy must be an object or null")
-        if not isinstance(observations_raw, list) or len(observations_raw) > MAX_OBSERVATIONS:
-            raise ValueError(
-                f"{replay_id} observations must contain at most {MAX_OBSERVATIONS} items"
-            )
-        observations: list[ActionObservation] = []
-        for item in observations_raw:
-            if not isinstance(item, Mapping):
-                raise ValueError(f"{replay_id} observations must be objects")
-            observations.append(ActionObservation.from_dict(item))
-        if max_latency_ms is not None and (
-            isinstance(max_latency_ms, bool)
-            or not isinstance(max_latency_ms, (int, float))
-            or max_latency_ms <= 0
-        ):
-            raise ValueError(f"{replay_id} max_latency_ms must be a positive number or null")
-        if origin_raw is not None and not isinstance(origin_raw, str):
-            raise ValueError(f"{replay_id} origin must be text or null")
-
+        if not isinstance(trajectory_raw, Mapping):
+            raise ValueError(f"regression {case_id!r} requires trajectory object")
+        trajectory = AgentTrajectory.from_dict(trajectory_raw)
         return cls(
-            id=replay_id,
-            failure_class=cast(FailureClass, failure_class),
-            severity=cast(Severity, severity),
+            id=case_id,
+            failure_class=failure_class,
             invariant=invariant,
-            why_it_matters=why_it_matters,
-            kind=cast(RegressionKind, kind),
-            safety=(
-                SafetyFixture.from_dict(safety_raw) if isinstance(safety_raw, Mapping) else None
-            ),
-            trajectory=(
-                AgentTrajectory.from_dict(trajectory_raw)
-                if isinstance(trajectory_raw, Mapping)
-                else None
-            ),
-            tool_semantics=(
-                ToolSemanticsRegistry.from_dict(semantics_raw)
-                if isinstance(semantics_raw, Mapping)
-                else None
-            ),
-            action_policy=(
-                ActionPolicySet.from_dict(policy_raw) if isinstance(policy_raw, Mapping) else None
-            ),
-            observations=tuple(observations),
-            expected_trajectory_categories=expected_trajectory_categories,
-            expected_provenance_codes=expected_provenance_codes,
-            max_latency_ms=float(max_latency_ms) if max_latency_ms is not None else None,
-            origin=origin_raw.strip()
-            if isinstance(origin_raw, str) and origin_raw.strip()
-            else None,
+            source=source,
+            trajectory=trajectory,
         )
 
 
 @dataclass(frozen=True)
-class RegressionReplayResult:
-    replay: RegressionReplay
-    actual: Decision | None
-    latency_ms: float
-    errors: tuple[str, ...]
+class FailureRegressionResult:
+    case: FailureRegressionCase
+    trajectory_result: TrajectoryResult
 
     @property
-    def passed(self) -> bool:
-        return not self.errors
+    def matches(self) -> bool:
+        return self.trajectory_result.matches
 
     @property
-    def critical_false_allow(self) -> bool:
-        if self.replay.severity != "critical" or self.replay.kind != "safety":
-            return False
-        assert self.replay.safety is not None
-        return self.actual == "allow" and self.replay.safety.expected != "allow"
+    def critical_miss(self) -> bool:
+        return any(
+            step.expected == "block" and step.actual != "block"
+            for step in self.trajectory_result.steps
+        )
 
     def diagnostic(self) -> str:
-        if self.passed:
-            return f"{self.replay.id}: pass"
-        return f"{self.replay.id}: " + "; ".join(self.errors)
+        if self.matches:
+            return f"{self.case.id}: pass"
+        return f"{self.case.id}: {self.trajectory_result.diagnostic()}"
 
 
 @dataclass(frozen=True)
-class RegressionReplayReport:
-    results: tuple[RegressionReplayResult, ...]
+class FailureRegressionReport:
+    results: tuple[FailureRegressionResult, ...]
 
     @property
     def case_count(self) -> int:
         return len(self.results)
 
     @property
-    def passed(self) -> int:
-        return sum(result.passed for result in self.results)
+    def matches(self) -> int:
+        return sum(result.matches for result in self.results)
 
     @property
-    def critical_false_allows(self) -> int:
-        return sum(result.critical_false_allow for result in self.results)
+    def critical_misses(self) -> int:
+        return sum(result.critical_miss for result in self.results)
+
+    @property
+    def failure_class_coverage(self) -> dict[str, int]:
+        return dict(sorted(Counter(result.case.failure_class for result in self.results).items()))
 
     def regression_errors(self) -> list[str]:
-        return [result.diagnostic() for result in self.results if not result.passed]
+        return [result.diagnostic() for result in self.results if not result.matches]
 
     def as_dict(self) -> dict[str, Any]:
         return {
-            "schema_version": "ordin.regression_replay_report.v1",
+            "schema_version": REPORT_SCHEMA_VERSION,
             "cases": self.case_count,
-            "passed": self.passed,
-            "critical_false_allows": self.critical_false_allows,
-            "failure_class_coverage": dict(
-                sorted(
-                    {
-                        failure_class: sum(
-                            result.replay.failure_class == failure_class for result in self.results
-                        )
-                        for failure_class in {
-                            result.replay.failure_class for result in self.results
-                        }
-                    }.items()
-                )
-            ),
+            "matches": self.matches,
+            "critical_misses": self.critical_misses,
+            "failure_class_coverage": self.failure_class_coverage,
             "errors": self.regression_errors(),
             "results": [
                 {
-                    "id": result.replay.id,
-                    "failure_class": result.replay.failure_class,
-                    "severity": result.replay.severity,
-                    "passed": result.passed,
-                    "actual": result.actual,
-                    "latency_ms": round(result.latency_ms, 4),
-                    "errors": list(result.errors),
+                    "id": result.case.id,
+                    "failure_class": result.case.failure_class,
+                    "invariant": result.case.invariant,
+                    "source": result.case.source,
+                    "matches": result.matches,
+                    "critical_miss": result.critical_miss,
                 }
                 for result in self.results
             ],
         }
 
 
-def load_regression_replays(path: str | Path) -> list[RegressionReplay]:
+def load_failure_regressions(
+    path: str | Path,
+    *,
+    case_id: str | None = None,
+) -> list[FailureRegressionCase]:
     target = Path(path)
-    replays: list[RegressionReplay] = []
+    cases: list[FailureRegressionCase] = []
     seen: set[str] = set()
     with target.open("r", encoding="utf-8") as handle:
         for line_number, raw_line in enumerate(handle, start=1):
@@ -322,107 +197,31 @@ def load_regression_replays(path: str | Path) -> list[RegressionReplay]:
                 payload = json.loads(line)
             except json.JSONDecodeError as exc:
                 raise ValueError(
-                    f"invalid regression JSON at {target}:{line_number}: {exc.msg}"
+                    f"invalid regression JSON at line {line_number}: {exc.msg}"
                 ) from exc
             if not isinstance(payload, Mapping):
-                raise ValueError(f"regression at {target}:{line_number} must be a JSON object")
-            replay = RegressionReplay.from_dict(payload)
-            if replay.id in seen:
-                raise ValueError(f"duplicate regression replay id {replay.id!r}")
-            seen.add(replay.id)
-            replays.append(replay)
-            if len(replays) > MAX_REPLAYS:
-                raise ValueError(f"regression corpus must contain at most {MAX_REPLAYS} cases")
-    if not replays:
-        raise ValueError("regression replay corpus must contain at least one case")
-    return replays
+                raise ValueError(f"regression line {line_number} must contain an object")
+            case = FailureRegressionCase.from_dict(payload)
+            if case.id in seen:
+                raise ValueError(f"duplicate regression id {case.id!r}")
+            seen.add(case.id)
+            if case_id is None or case.id == case_id:
+                cases.append(case)
+    if case_id is not None and not cases:
+        raise ValueError(f"regression case {case_id!r} was not found")
+    if not cases:
+        raise ValueError("regression corpus must contain at least one case")
+    return cases
 
 
-def _provenance_codes(review: Any) -> set[str]:
-    provenance = getattr(review, "provenance", None)
-    records = getattr(provenance, "records", ()) if provenance is not None else ()
-    return {record.code for record in records if isinstance(getattr(record, "code", None), str)}
-
-
-def _run_safety_replay(replay: RegressionReplay) -> RegressionReplayResult:
-    assert replay.safety is not None
-    ordin = Ordin(
-        temporal_policy=default_temporal_policy(),
-        tool_semantics=replay.tool_semantics,
-        action_policy=replay.action_policy,
-    )
-    action = replay.safety.build_action()
-    history = replay.safety.build_history()
-    observation_history = (
-        ObservationHistory(observations=replay.observations) if replay.observations else None
-    )
-    started = perf_counter_ns()
-    review = ordin.review_action(action, history=history, observations=observation_history)
-    latency_ms = (perf_counter_ns() - started) / 1_000_000
-
-    errors: list[str] = []
-    if review.decision != replay.safety.expected:
-        errors.append(f"expected {replay.safety.expected}, got {review.decision}")
-    missing_effects = set(replay.safety.expected_effects) - set(review.effects)
-    if missing_effects:
-        errors.append(f"missing effects {sorted(missing_effects)}")
-    resources = tuple(f"{resource.type}:{resource.value}" for resource in review.resources)
-    missing_prefixes = [
-        prefix
-        for prefix in replay.safety.expected_resource_prefixes
-        if not any(resource.startswith(prefix) for resource in resources)
-    ]
-    if missing_prefixes:
-        errors.append(f"missing resource prefixes {missing_prefixes}")
-    missing_categories = set(replay.expected_trajectory_categories) - set(
-        review.trajectory_categories
-    )
-    if missing_categories:
-        errors.append(f"missing trajectory categories {sorted(missing_categories)}")
-    missing_provenance = set(replay.expected_provenance_codes) - _provenance_codes(review)
-    if missing_provenance:
-        errors.append(f"missing provenance codes {sorted(missing_provenance)}")
-    if replay.max_latency_ms is not None and latency_ms > replay.max_latency_ms:
-        errors.append(
-            f"latency {latency_ms:.2f}ms exceeds replay budget {replay.max_latency_ms:.2f}ms"
+def run_failure_regressions(cases: list[FailureRegressionCase]) -> FailureRegressionReport:
+    results: list[FailureRegressionResult] = []
+    for case in cases:
+        trajectory_report = run_agent_trajectory_corpus([case.trajectory])
+        results.append(
+            FailureRegressionResult(
+                case=case,
+                trajectory_result=trajectory_report.results[0],
+            )
         )
-    return RegressionReplayResult(
-        replay=replay,
-        actual=review.decision,
-        latency_ms=latency_ms,
-        errors=tuple(errors),
-    )
-
-
-def _run_trajectory_replay(replay: RegressionReplay) -> RegressionReplayResult:
-    assert replay.trajectory is not None
-    started = perf_counter_ns()
-    result = run_agent_trajectory_corpus([replay.trajectory]).results[0]
-    latency_ms = (perf_counter_ns() - started) / 1_000_000
-    errors: list[str] = []
-    if not result.matches:
-        errors.append(result.diagnostic())
-    if replay.max_latency_ms is not None and latency_ms > replay.max_latency_ms:
-        errors.append(
-            f"latency {latency_ms:.2f}ms exceeds replay budget {replay.max_latency_ms:.2f}ms"
-        )
-    actual = result.steps[-1].actual if result.steps else None
-    return RegressionReplayResult(
-        replay=replay,
-        actual=actual,
-        latency_ms=latency_ms,
-        errors=tuple(errors),
-    )
-
-
-def run_regression_replays(
-    replays: list[RegressionReplay], *, replay_id: str | None = None
-) -> RegressionReplayReport:
-    selected = [replay for replay in replays if replay_id is None or replay.id == replay_id]
-    if replay_id is not None and not selected:
-        raise ValueError(f"unknown regression replay id {replay_id!r}")
-    results = tuple(
-        _run_safety_replay(replay) if replay.kind == "safety" else _run_trajectory_replay(replay)
-        for replay in selected
-    )
-    return RegressionReplayReport(results=results)
+    return FailureRegressionReport(results=tuple(results))

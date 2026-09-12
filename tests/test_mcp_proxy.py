@@ -2,6 +2,8 @@ import json
 import subprocess
 import sys
 
+import pytest
+
 from ordin.agent import AgentGate
 from ordin.api import Ordin
 from ordin.mcp_proxy import (
@@ -84,6 +86,17 @@ def test_server_identity_mismatch_loses_trusted_semantics():
     assert decision.response is not None
     assert decision.response["error"]["code"] == APPROVAL_REQUIRED_CODE
     assert decision.response["error"]["data"]["ordin"]["decision"] == "ask"
+
+
+def test_tool_identity_whitespace_is_not_forwarded_with_trusted_semantics():
+    gate = AgentGate(Ordin(tool_semantics=_read_semantics()))
+    proxy = MCPStdioSafetyProxy(server_id="fixture", gate=gate)
+
+    decision = proxy.process_client_message(_call(name=" read_file "))
+
+    assert decision.forward is False
+    assert decision.response["error"]["code"] == APPROVAL_REQUIRED_CODE
+    assert proxy.pending_count == 0
 
 
 def test_explicit_shell_block_never_reaches_upstream():
@@ -294,3 +307,44 @@ for line in sys.stdin:
     saved = json.loads(observations.read_text(encoding="utf-8"))
     assert saved["metadata"]["tool"] == "read_file"
     assert "fixture-secret" not in observations.read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize(
+    ("server_code", "expected_code"),
+    [
+        ("pass", 0),
+        ("raise SystemExit(7)", 7),
+        ("import time; print('invalid-json', flush=True); time.sleep(30)", 1),
+    ],
+)
+def test_stdio_proxy_exits_when_upstream_stops_with_client_input_open(server_code, expected_code):
+    process = subprocess.Popen(
+        [
+            sys.executable,
+            "-m",
+            "ordin.mcp_proxy",
+            "--server-id",
+            "fixture",
+            "--shutdown-timeout",
+            "0.2",
+            "--",
+            sys.executable,
+            "-c",
+            server_code,
+        ],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    try:
+        # A persistent MCP client keeps stdin open while waiting for a response.
+        assert process.wait(timeout=5) == expected_code
+    finally:
+        process.stdin.close()
+        try:
+            process.wait(timeout=3)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait(timeout=3)
+        process.stdout.close()
+        process.stderr.close()
