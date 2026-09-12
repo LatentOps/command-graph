@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://latentops.dev/schemas/ordin/mcp-contract-lock.v1.schema.json",
+  "title": "Ordin MCP Contract Lock v1",
+  "type": "object",
+  "required": ["schema_version", "canonicalization", "semantics_digest", "protocol_revision", "pins"],
+  "properties": {
+    "schema_version": {"const": "ordin.mcp_contract_lock.v1"},
+    "canonicalization": {"const": "ordin.mcp_contract.v1"},
+    "semantics_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "protocol_revision": {"type": "string", "minLength": 1, "maxLength": 256},
+    "pins": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 256,
+      "items": {
+        "type": "object",
+        "required": ["server", "tool", "digest"],
+        "properties": {
+          "server": {"type": "string", "minLength": 1, "maxLength": 256},
+          "tool": {"type": "string", "minLength": 1, "maxLength": 256},
+          "digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

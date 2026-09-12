@@ -8,6 +8,7 @@ from .action_policy import ActionPolicySet, CompiledActionPolicySet
 from .audit import AuditSink
 from .context import ExecutionContext, ReviewRequest
 from .execution import ObservationHistory
+from .mcp_contracts import MCPContractCheck
 from .policy import ReviewPolicy
 from .review import CommandReview, review_command
 from .risk import RiskReview, check_command
@@ -108,6 +109,7 @@ class Ordin:
         *,
         history: ActionHistory | Mapping[str, Any] | None = None,
         observations: ObservationHistory | Mapping[str, Any] | None = None,
+        contract_check: MCPContractCheck | None = None,
     ) -> ActionReview:
         parsed = self._parse_action(action)
         if parsed.context is None and self.context is not None:
@@ -137,11 +139,19 @@ class Ordin:
         compiled_policy = self.action_policy
         if isinstance(compiled_policy, CompiledActionPolicySet):
             result = compiled_policy.apply(result)
+        if contract_check is not None:
+            result = contract_check.apply(result)
         if self.audit is not None:
             self.audit.record(result)
         return result
 
     def allows(self, review: RiskReview | CommandReview | ActionReview) -> bool:
+        if isinstance(review, ActionReview) and review.provenance is not None:
+            if any(
+                record.code.startswith("mcp.contract.") and record.code != "mcp.contract.matched"
+                for record in review.provenance.records
+            ):
+                return False
         return self.policy.allows(review)
 
     def _parse_request(self, request: ReviewRequest | Mapping[str, Any]) -> ReviewRequest:

@@ -297,11 +297,17 @@ def _review_exit(args: argparse.Namespace, decision: str) -> int:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    raw_args = list(sys.argv[1:] if argv is None else argv)
+    if raw_args and raw_args[0] == "contracts":
+        from .contracts_cli import main as contracts_main
+
+        return contracts_main(raw_args[1:])
     parser = argparse.ArgumentParser(
         prog="ordin",
         description="Intent-aware command discovery and safety checks.",
     )
     subparsers = parser.add_subparsers(dest="command_name", required=True)
+    subparsers.add_parser("contracts", help="Validate and compare reviewed MCP contract pins")
 
     search_parser = subparsers.add_parser("search", help="Search commands by intent.")
     search_parser.add_argument("query")

@@ -39,6 +39,8 @@ repos:
           ordin/claude_code.py
           ordin/execution.py
           ordin/mcp_proxy.py
+          ordin/mcp_contracts.py
+          ordin/contracts_cli.py
           ordin/session.py
           ordin/session_evaluation.py
           ordin/provenance.py

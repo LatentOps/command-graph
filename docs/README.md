@@ -45,6 +45,7 @@ The Python API reviews actions but never executes them.
 - [Claude Code hooks](claude-code-integration.md)
 - [Live integration sessions](integration-sessions.md)
 - [MCP safety proxy](mcp-safety-proxy.md)
+- [MCP contract pinning](mcp-contract-pinning.md)
 - [Integration diagnostics](integration-troubleshooting.md)
 - [Agent runtime integration](agent-integration.md)
 - [Tool and MCP adapters](tool-and-mcp-adapters.md)

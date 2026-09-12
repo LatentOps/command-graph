@@ -10,6 +10,7 @@ import subprocess
 import sys
 import threading
 import uuid
+from decimal import Decimal
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, IO, Mapping, Sequence
@@ -21,6 +22,12 @@ from .api import Ordin
 from .audit import JsonlAuditSink
 from .context import ExecutionContext
 from .execution import ActionObservation
+from .mcp_contracts import (
+    MCPContractLock,
+    MCPContractObserver,
+    load_contract_json,
+    semantics_binding_digest,
+)
 from .policy import FailThreshold, ReviewPolicy
 from .session import IntegrationSession, SessionIdentity
 from .tool_calls import load_tool_semantics
@@ -99,6 +106,11 @@ def _decision_data(decision: AgentDecision) -> dict[str, Any]:
     safer = getattr(review, "safer_next_step", None)
     if isinstance(safer, str) and safer:
         data["ordin"]["safer_next_step"] = safer[:MAX_PROXY_REASON_LENGTH]
+    provenance = getattr(review, "provenance", None)
+    if provenance is not None:
+        for record in provenance.records:
+            if record.code.startswith("mcp.contract."):
+                data["ordin"]["contract"] = dict(record.metadata)
     return data
 
 
@@ -156,6 +168,7 @@ class MCPStdioSafetyProxy:
         context: ExecutionContext | None = None,
         observations_path: str | Path | None = None,
         session_id: str | None = None,
+        contract_lock: MCPContractLock | None = None,
     ) -> None:
         self.adapter = MCPAdapter(server=server_id, shell_tools=shell_tools)
         self.server_id = self.adapter.server
@@ -171,6 +184,16 @@ class MCPStdioSafetyProxy:
         )
         self._sequence = 0
         self._pending: dict[str | int | float, _PendingToolCall] = {}
+        self._other_pending: dict[str | int | float, str] = {}
+        self.contracts = (
+            MCPContractObserver(
+                self.server_id,
+                contract_lock,
+                semantics_binding_digest(self.gate.ordin.tool_semantics, shell_tools),
+            )
+            if contract_lock is not None
+            else None
+        )
         self._lock = threading.RLock()
 
     def process_client_message(self, message: Mapping[str, Any]) -> MCPClientMessageDecision:
@@ -202,7 +225,7 @@ class MCPStdioSafetyProxy:
                 ),
             )
         if message.get("method") != "tools/call":
-            return MCPClientMessageDecision(forward=True)
+            return self._process_other_client_message(message)
 
         request_id = message.get("id")
         request_key = _request_id_key(request_id)
@@ -256,7 +279,7 @@ class MCPStdioSafetyProxy:
                         message="Ordin session has reached its in-flight action limit",
                     ),
                 )
-            if request_key in self._pending:
+            if request_key in self._pending or request_key in self._other_pending:
                 return MCPClientMessageDecision(
                     forward=False,
                     response=_jsonrpc_error(
@@ -281,7 +304,10 @@ class MCPStdioSafetyProxy:
                 context=self.context,
                 action_id=action_id,
             )
-            decision = self.session.evaluate(action)
+            decision = self.session.evaluate(
+                action,
+                contract_check=self.contracts.check(tool) if self.contracts is not None else None,
+            )
         except ValueError as exc:
             return MCPClientMessageDecision(
                 forward=False,
@@ -338,10 +364,24 @@ class MCPStdioSafetyProxy:
 
         if not isinstance(message, Mapping) or message.get("jsonrpc") != "2.0":
             return None
+        if "method" in message:
+            if (
+                self.contracts is not None
+                and message.get("method") == "notifications/tools/list_changed"
+            ):
+                self.contracts.invalidate()
+            return None
+        if "result" in message and "error" in message:
+            raise ValueError("ambiguous JSON-RPC terminal response")
         if "id" not in message or ("result" not in message and "error" not in message):
             return None
         request_key = _request_id_key(message.get("id"))
         if request_key is None:
+            return None
+        method = self._other_pending.pop(request_key, None)
+        if method is not None:
+            if method == "tools/list" and self.contracts is not None:
+                self.contracts.response(request_key, message)
             return None
         with self._lock:
             pending = self._pending.pop(request_key, None)
@@ -399,9 +439,50 @@ class MCPStdioSafetyProxy:
     def reset_session(self) -> None:
         """Explicitly clear temporal state after all in-flight calls finish."""
         with self._lock:
-            if self._pending:
+            if self._pending or self._other_pending:
                 raise ValueError("cannot reset an MCP session with in-flight actions")
             self.session.reset()
+
+    def _process_other_client_message(self, message: Mapping[str, Any]) -> MCPClientMessageDecision:
+        if "method" not in message or "id" not in message:
+            return MCPClientMessageDecision(forward=True)
+        request_id = _request_id_key(message.get("id"))
+        method = message.get("method")
+        if request_id is None or not isinstance(method, str):
+            return MCPClientMessageDecision(
+                forward=False,
+                response=_jsonrpc_error(
+                    None, code=INVALID_REQUEST_CODE, message="invalid MCP request identity"
+                ),
+            )
+        if (
+            request_id in self._pending
+            or request_id in self._other_pending
+            or len(self._other_pending) >= 32
+        ):
+            return MCPClientMessageDecision(
+                forward=False,
+                response=_jsonrpc_error(
+                    request_id,
+                    code=INVALID_REQUEST_CODE,
+                    message="duplicate or excessive in-flight MCP request",
+                ),
+            )
+        if method == "tools/list" and self.contracts is not None:
+            try:
+                params = message.get("params", {})
+                if not isinstance(params, Mapping):
+                    raise ValueError("tools/list params must be an object")
+                self.contracts.request(request_id, params)
+            except ValueError as exc:
+                return MCPClientMessageDecision(
+                    forward=False,
+                    response=_jsonrpc_error(
+                        request_id, code=INVALID_REQUEST_CODE, message=str(exc)
+                    ),
+                )
+        self._other_pending[request_id] = method
+        return MCPClientMessageDecision(forward=True)
 
     @property
     def pending_count(self) -> int:
@@ -419,6 +500,7 @@ def build_mcp_proxy(
     fail_on: FailThreshold = "warn",
     shell_tools: frozenset[str] = frozenset(),
     cwd: str | None = None,
+    contract_lock_path: str | Path | None = None,
 ) -> MCPStdioSafetyProxy:
     semantics = load_tool_semantics(semantics_path) if semantics_path is not None else None
     action_policy = load_action_policy(policy_path) if policy_path is not None else None
@@ -439,6 +521,9 @@ def build_mcp_proxy(
         shell_tools=shell_tools,
         context=context,
         observations_path=observations_path,
+        contract_lock=MCPContractLock.from_dict(load_contract_json(contract_lock_path))
+        if contract_lock_path is not None
+        else None,
     )
 
 
@@ -466,6 +551,8 @@ def _finite_json_number(text: str) -> float:
     number = float(text)
     if not math.isfinite(number):
         raise ValueError("MCP JSON numbers must be finite")
+    if Decimal(text) != Decimal(str(number)):
+        raise ValueError("MCP JSON number cannot be represented without decimal precision loss")
     return number
 
 
@@ -696,6 +783,9 @@ def _parser() -> argparse.ArgumentParser:
         "--server-id", required=True, help="Stable identity for the upstream MCP server"
     )
     parser.add_argument("--semantics", help="Optional exact tool-semantics JSON file")
+    parser.add_argument(
+        "--contract-lock", help="Require reviewed MCP contract pins before forwarding tool calls"
+    )
     parser.add_argument("--policy", help="Optional declarative Ordin action-policy JSON file")
     parser.add_argument(
         "--fail-on",
@@ -736,6 +826,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         proxy = build_mcp_proxy(
             server_id=args.server_id,
             semantics_path=args.semantics,
+            contract_lock_path=args.contract_lock,
             policy_path=args.policy,
             audit_path=args.audit,
             observations_path=args.observations,

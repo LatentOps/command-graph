@@ -17,6 +17,7 @@ from . import __version__
 from .action import MAX_ACTION_HISTORY, ActionEnvelope, ActionHistory
 from .agent import AgentDecision, AgentGate
 from .execution import ActionObservation, ObservationHistory
+from .mcp_contracts import MCPContractCheck
 from .schema import validate_named_schema
 from .temporal import default_temporal_policy
 
@@ -141,7 +142,9 @@ class IntegrationSession:
         if self._closed:
             raise ValueError("integration session has ended")
 
-    def evaluate(self, action: ActionEnvelope) -> AgentDecision:
+    def evaluate(
+        self, action: ActionEnvelope, *, contract_check: MCPContractCheck | None = None
+    ) -> AgentDecision:
         with self._lock:
             self.require_identity(self.identity)
             if not action.action_id:
@@ -151,10 +154,12 @@ class IntegrationSession:
             # Validate the exact snapshot size before calling an audit sink or
             # changing state. Copying also prevents caller mutation after review.
             proposed = ActionEnvelope.from_dict(_load(_json(action.as_dict())))
+            extra = {"contract_check": contract_check} if contract_check is not None else {}
             decision = self.gate.evaluate_action(
                 proposed,
                 history=ActionHistory(tuple(self._actions)),
                 observations=ObservationHistory(tuple(self._observations.values())),
+                **extra,
             )
             actions = (self._actions + [proposed])[-MAX_ACTION_HISTORY:]
             ids = {item.action_id for item in actions}
