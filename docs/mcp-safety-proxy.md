@@ -10,7 +10,7 @@ Use [`--contract-lock`](mcp-contract-pinning.md) to require a reviewed live tool
 contract before an exact tool identity can inherit trusted semantics.
 
 Each proxy connection carries bounded in-memory action and observation history.
-New proposals wait when appending one would evict a still-pending tool action
+The proxy refuses new proposals when appending one would evict a still-pending tool action
 from that history. This limit also counts denied proposals. The proxy returns
 an error until the pending result is recorded, preserving response correlation
 without growing the history beyond its bound.
