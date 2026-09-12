@@ -46,7 +46,7 @@ git tag v0.2.0
 git push origin v0.2.0
 ```
 
-The release workflow refuses a tag that does not exactly equal `v<project.version>` and refuses a mismatch between distribution and runtime versions.
+The release workflow refuses a tag that does not exactly equal `v<project.version>` and refuses a mismatch between distribution and runtime versions. Published tags must use a final `X.Y.Z` version; development versions can be validated through `workflow_dispatch` without publishing.
 
 ## Release workflow
 
@@ -56,7 +56,7 @@ Every `v*` tag:
 2. builds wheel and source distribution;
 3. runs Twine metadata validation;
 4. installs the built wheel into a fresh virtual environment;
-5. runs installed `ordin doctor`, natural-language search, and public Python API smoke checks;
+5. runs installed `ordin doctor`, search, isolated Python API/version checks, adapter conformance, a Claude Code hook request, and the MCP entry point;
 6. uploads the validated distributions as a workflow artifact;
 7. creates the matching GitHub Release and attaches the exact validated wheel and source distribution.
 
@@ -69,7 +69,7 @@ The workflow refuses to replace an already-existing GitHub Release under the sam
 Users can install a stable release directly from its Git tag:
 
 ```bash
-python -m pip install "git+https://github.com/LatentOps/ordin.git@v0.1.0"
+python -m pip install "git+https://github.com/LatentOps/ordin.git@v0.2.0"
 ```
 
 They can also install the wheel attached to the GitHub Release.

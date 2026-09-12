@@ -1,24 +1,24 @@
 # Installation
 
-Ordin is distributed directly from GitHub. The current development version
+Ordin is distributed directly from GitHub. Version `0.2.0`
 installs `ordin`, `ordin-claude-hook`, and `ordin-mcp-proxy`.
 
-The root README describes `main` (`0.2.0.dev0`). Use the development install below
-for its current APIs and integrations. The older `v0.1.0` tag predates the Claude
-Code hook and MCP proxy; use that tag's documentation when installing it.
+The root README describes the stable `v0.2.0` release. It includes the current
+Python API, Claude Code hook, and MCP proxy. Use `main` only when you want
+unreleased development changes.
 
 ## Install the current stable release
 
-The current stable release is `v0.1.0`. Install it directly from the immutable Git tag:
+The current stable release is `v0.2.0`. Install it directly from the immutable Git tag:
 
 ```bash
-python -m pip install "git+https://github.com/LatentOps/ordin.git@v0.1.0"
+python -m pip install "git+https://github.com/LatentOps/ordin.git@v0.2.0"
 ```
 
 You can also install the validated wheel attached to the GitHub release:
 
 ```bash
-python -m pip install https://github.com/LatentOps/ordin/releases/download/v0.1.0/ordin-0.1.0-py3-none-any.whl
+python -m pip install https://github.com/LatentOps/ordin/releases/download/v0.2.0/ordin-0.2.0-py3-none-any.whl
 ```
 
 Then verify the installation:
@@ -33,7 +33,8 @@ The release also includes a source distribution for environments that prefer to 
 
 ## Install the current development tree
 
-`main` is development code and currently identifies itself as `0.2.0.dev0`.
+After each release, `main` advances to the next development version. Its exact
+version is declared in `pyproject.toml`; use a release tag for a fixed version.
 
 Install it directly from GitHub:
 
