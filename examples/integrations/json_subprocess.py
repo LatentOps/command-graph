@@ -10,8 +10,8 @@ def main() -> int:
         "schema_version": "ordin.action_envelope.v1",
         "kind": "shell",
         "operation": "execute",
-        "parameters": {"command": "printf 'json boundary\\n'"},
-        "intent": "demonstrate a non-Python JSON integration",
+        "parameters": {"command": "ls README.md"},
+        "intent": "list files",
         "context": {"cwd": ".", "agent": "json-starter"},
         "action_id": "starter-kit-json-1",
     }
