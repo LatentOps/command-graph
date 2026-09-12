@@ -26,7 +26,7 @@ def test_python_quickstart_reviews_executes_and_records_observation():
 
     assert completed.returncode == 0, completed.stderr
     assert "decision=allow disposition=execute" in completed.stdout
-    assert "ordin quickstart" in completed.stdout
+    assert "README.md" in completed.stdout
     assert "observation=ordin.action_observation.v1 exit=0" in completed.stdout
 
 
@@ -41,8 +41,8 @@ def test_json_subprocess_example_uses_versioned_cli_boundary():
 
 
 def test_ci_gate_allows_safe_command_and_rejects_blocked_command():
-    safe = _run_python("ci_gate.py", "git status --short")
-    blocked = _run_python("ci_gate.py", "rm -rf /")
+    safe = _run_python("ci_gate.py", "--intent", "list files", "ls README.md")
+    blocked = _run_python("ci_gate.py", "--intent", "remove files", "rm -rf /")
 
     assert safe.returncode == 0, safe.stdout + safe.stderr
     assert "decision=allow" in safe.stdout
