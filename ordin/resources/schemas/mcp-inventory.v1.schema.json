@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://latentops.dev/schemas/ordin/mcp-inventory.v1.schema.json",
+  "title": "Ordin MCP Inventory v1",
+  "type": "object",
+  "required": ["schema_version", "server_id", "protocol_revision", "tools"],
+  "properties": {
+    "schema_version": {"const": "ordin.mcp_inventory.v1"},
+    "server_id": {"type": "string", "minLength": 1, "maxLength": 256},
+    "protocol_revision": {"const": "2025-11-25"},
+    "tools": {"type": "array", "maxItems": 256, "items": {"type": "object", "required": ["name", "inputSchema"], "properties": {"name": {"type": "string", "minLength": 1, "maxLength": 256}, "inputSchema": {"type": "object"}}, "additionalProperties": true}}
+  },
+  "additionalProperties": false
+}

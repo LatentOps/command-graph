@@ -47,6 +47,7 @@ The Python API reviews actions but never executes them.
 - [Live integration sessions](integration-sessions.md)
 - [MCP safety proxy](mcp-safety-proxy.md)
 - [MCP contract pinning](mcp-contract-pinning.md)
+- [MCP inspection and semantics setup](mcp-semantics-setup.md)
 - [Integration diagnostics](integration-troubleshooting.md)
 - [Agent runtime integration](agent-integration.md)
 - [Tool and MCP adapters](tool-and-mcp-adapters.md)
