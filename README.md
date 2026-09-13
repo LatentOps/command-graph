@@ -2,6 +2,9 @@
 
 Review commands and tool calls before running them.
 
+`main` now develops `0.4.0.dev0`. Install the immutable `v0.3.0` tag for the
+current stable release; new development features are labeled separately.
+
 Ordin is a Python library and CLI for developers and AI agents. It examines a
 proposed action, identifies effects such as file deletion or network access,
 and returns `allow`, `warn`, `ask`, or `block` with reasons. You can also describe

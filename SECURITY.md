@@ -5,8 +5,8 @@ Report safety-sensitive vulnerabilities privately through
 It is enabled for this repository. If that page is unavailable, open a public
 issue asking only for a private contact method, without exploit details.
 
-The latest `0.2.x` release is supported for security fixes. Development toward
-`0.3` is reviewed on `main`; development builds are not stable releases. Older
+The latest `0.3.x` release is supported for security fixes. Development toward
+`0.4` is reviewed on `main`; development builds are not stable releases. Older
 release lines are unsupported. Security fixes may require upgrading to a new
 patch version; published artifacts are never replaced in place.
 
