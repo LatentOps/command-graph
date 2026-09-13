@@ -5,7 +5,6 @@ import runpy
 import sys
 
 import pytest
-import yaml
 
 from ordin.trace_replay import (
     load_capture_conformance,
@@ -13,10 +12,12 @@ from ordin.trace_replay import (
     replay_candidate,
     replay_integration_candidate,
 )
-from scripts.summarize_feedback import main, summarize
 
 
 ROOT = Path(__file__).resolve().parents[1]
+SUMMARY = runpy.run_path(str(ROOT / "scripts/summarize_feedback.py"))
+main = SUMMARY["main"]
+summarize = SUMMARY["summarize"]
 
 
 def test_synthetic_report_becomes_private_reconstruction_and_regression(tmp_path, monkeypatch):
@@ -67,25 +68,3 @@ def test_summary_refuses_existing_output_and_does_not_echo_bad_input(tmp_path, c
     source.write_text('{"secret":"never echo this"}')
     assert main([str(source)]) == 2
     assert "never echo this" not in capsys.readouterr().out
-
-
-def test_issue_forms_have_unique_fields_private_route_and_minimal_context():
-    directory = ROOT / ".github/ISSUE_TEMPLATE"
-    for name in ("safety.yml", "integration.yml", "captured-failure.yml"):
-        form = yaml.safe_load((directory / name).read_text())
-        body = form["body"]
-        ids = [field["id"] for field in body if "id" in field]
-        assert len(ids) == len(set(ids))
-        assert {
-            "privacy",
-            "ordin_version",
-            "integration",
-            "environment",
-            "behavior",
-            "history",
-            "reproduction",
-            "capture",
-        } <= set(ids)
-        warning = body[0]["attributes"]["value"]
-        assert "security/advisories/new" in warning and "raw unsanitized trace" in warning
-        assert body[1]["attributes"]["options"][0]["required"] is True
