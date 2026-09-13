@@ -75,7 +75,7 @@ def test_package_install_exposes_ordin_cli_graph_data_and_public_api(tmp_path):
             str(python),
             "-I",
             "-c",
-            "import json,ordin; from importlib.resources import files; from importlib.metadata import distribution; m=json.loads(files('ordin').joinpath('resources/public-surface-0.3.json').read_text()); assert sorted(ordin.__all__)==m['exports']; assert {e.name:e.value for e in distribution('ordin').entry_points}==m['console_scripts']",
+            "import json,ordin; from importlib.resources import files; from importlib.metadata import distribution; m=json.loads(files('ordin').joinpath('resources/public-surface-0.3.json').read_text()); assert sorted(ordin.__all__)==m['exports']; assert {e.name:e.value for e in distribution('ordin').entry_points}==dict(m['console_scripts'], **{'ordin-cursor-hook':'ordin.cursor:main'})",
         ],
         check=True,
         cwd=venv_path,

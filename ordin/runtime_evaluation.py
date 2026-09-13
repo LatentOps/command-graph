@@ -481,6 +481,30 @@ def run_runtime_integration_evaluation(
 
     cases = (
         *(
+            _cursor_case(
+                name,
+                tool,
+                arguments,
+                expected,
+                repetitions=repetitions,
+                timeout_seconds=timeout_seconds,
+                repo_root=root,
+            )
+            for name, tool, arguments, expected in (
+                ("cursor-read", "Read", {"path": "/workspace/README.md"}, "allow"),
+                ("cursor-shell", "Shell", {"command": "git status"}, "allow"),
+                (
+                    "cursor-write",
+                    "Write",
+                    {"path": "/workspace/out.txt", "content": "fixture"},
+                    "deny",
+                ),
+                ("cursor-root-delete", "Shell", {"command": "rm -rf /"}, "deny"),
+                ("cursor-unknown", "future_tool", {}, "deny"),
+                ("cursor-mcp-read", "fixture_notes_read", {"path": "README.md"}, "allow"),
+            )
+        ),
+        *(
             _codex_case(
                 name,
                 tool,
@@ -580,6 +604,92 @@ def run_runtime_integration_evaluation(
         cases=cases,
         setup_findings=setup_findings,
         http_transport=run_http_transport_evaluation(repetitions=repetitions),
+    )
+
+
+def _cursor_case(
+    case_id: str,
+    tool: str,
+    arguments: Mapping[str, Any],
+    expected: str,
+    *,
+    repetitions: int,
+    timeout_seconds: float,
+    repo_root: Path,
+) -> RuntimeCaseResult:
+    from .cursor import build_cursor_integration
+    from .trace_capture import digest, read_capture
+
+    payload = {
+        "hook_event_name": "preToolUse",
+        "conversation_id": "runtime",
+        "generation_id": "turn",
+        "cursor_version": "1.7.2",
+        "tool_use_id": case_id,
+        "tool_name": tool,
+        "tool_input": arguments,
+        "cwd": "/workspace",
+    }
+    env = {key: value for key, value in os.environ.items() if not key.startswith("ORDIN_CURSOR_")}
+    if case_id == "cursor-mcp-read":
+        env["ORDIN_CURSOR_MCP_MAP"] = str(repo_root / "examples/cursor-mcp-map.json")
+        env["ORDIN_CURSOR_SEMANTICS"] = str(repo_root / "examples/integrations/mcp-semantics.json")
+    samples = []
+    actual = "not_run"
+    exit_code = 1
+    linked = expected != "allow"
+    with tempfile.TemporaryDirectory(prefix="ordin-cursor-runtime-") as directory:
+        trace = Path(directory) / "trace.db"
+        env["ORDIN_CURSOR_TRACE"] = str(trace)
+        for repetition in range(repetitions):
+            payload["tool_use_id"] = f"{case_id}-{repetition}"
+            completed, elapsed = _run_process(
+                [sys.executable, "-I", "-m", "ordin.cursor", "pre"],
+                payload=payload,
+                env=env,
+                timeout_seconds=timeout_seconds,
+            )
+            samples.append(elapsed)
+            try:
+                actual = json.loads(completed.stdout).get("permission", "invalid_output")
+            except (ValueError, AttributeError):
+                actual = "invalid_output"
+            exit_code = completed.returncode
+            if exit_code != 0 or actual != expected:
+                break
+        if expected == "allow" and actual == "allow":
+            completed, _ = _run_process(
+                [sys.executable, "-I", "-m", "ordin.cursor", "post"],
+                payload={
+                    **payload,
+                    "hook_event_name": "postToolUse",
+                    "tool_output": '{"exitCode":0,"stdout":"private fixture output"}',
+                },
+                env=env,
+                timeout_seconds=timeout_seconds,
+            )
+            captured = read_capture(trace)
+            observations = [
+                event for event in captured["events"] if event["event"] == "observation"
+            ]
+            action = build_cursor_integration(mcp_map_path=env.get("ORDIN_CURSOR_MCP_MAP")).adapt(
+                payload
+            )
+            linked = (
+                completed.returncode == 0
+                and bool(observations)
+                and all(event["action_key"] == digest(action.action_id) for event in observations)
+                and "private fixture output" not in json.dumps(captured)
+            )
+    return RuntimeCaseResult(
+        case_id,
+        "cursor-hook-process",
+        expected,
+        actual,
+        tuple(samples),
+        exit_code,
+        observation_expected=expected == "allow",
+        observation_linked=linked,
     )
 
 
@@ -731,7 +841,7 @@ def render_runtime_integration_markdown(
         ]
     )
     for finding in payload["setup_findings"]:
-        lines.append(f"- {finding['category']}: {finding['status']} — {finding['finding']}")
+        lines.append(f"- {finding['category']}: {finding['status']} â€” {finding['finding']}")
     lines.extend(["", "## Limitations", ""])
     for limitation in payload["limitations"]:
         lines.append(f"- {limitation}")

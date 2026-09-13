@@ -54,6 +54,7 @@ def test_every_registered_schema_has_a_canonical_runtime_or_data_example(tmp_pat
         },
     }
     samples = {
+        "cursor_mcp_map": load_json(ROOT / "examples/cursor-mcp-map.json"),
         "action_trace": ActionTrace((TraceAction("git status"),)).as_dict(),
         "action_envelope": action.as_dict(),
         "action_history": ActionHistory((action,)).as_dict(),
@@ -201,6 +202,6 @@ def test_public_export_and_console_inventory_matches_frozen_manifest():
     assert sorted(ordin.__all__) == manifest["exports"]
     assert len(ordin.__all__) == len(set(ordin.__all__))
     assert all(hasattr(ordin, name) for name in ordin.__all__)
-    assert set(SCHEMA_FILES) == set(manifest["schemas"])
+    assert set(SCHEMA_FILES) == set(manifest["schemas"]) | {"cursor_mcp_map"}
     for module, names in manifest["module_contracts"].items():
         assert all(hasattr(import_module(module), name) for name in names), module

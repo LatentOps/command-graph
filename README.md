@@ -159,6 +159,7 @@ semantics match exact identities. See the [Python API](docs/python-api.md) and
 | --- | --- | --- |
 | Claude Code hooks | `ordin-claude-hook` | [Hook configuration and supported tools](docs/claude-code-integration.md) |
 | Codex hooks | `ordin-codex-hook` | [Hooks and plugin configuration](docs/codex-integration.md) |
+| Cursor hooks (0.4 development) | `ordin-cursor-hook` | [Native hooks and host limitations](docs/cursor-integration.md) |
 | An MCP client and stdio server | `ordin-mcp-proxy` | [Proxy setup and tool semantics](docs/mcp-safety-proxy.md) |
 | An MCP client and HTTP server | `ordin-mcp-http` | [Streamable HTTP setup](docs/mcp-http-proxy.md) |
 | Bash or Zsh | `ordin shell-init` and `orun` | [Reviewed shell execution](docs/shell-integration.md) |

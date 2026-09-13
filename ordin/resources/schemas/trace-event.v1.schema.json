@@ -16,7 +16,8 @@
             "claude-code",
             "codex",
             "mcp-proxy",
-            "mcp-http"
+            "mcp-http",
+            "cursor"
           ]
         },
         "effects": {
@@ -327,7 +328,8 @@
             "claude-code",
             "codex",
             "mcp-proxy",
-            "mcp-http"
+            "mcp-http",
+            "cursor"
           ]
         },
         "effects": {
@@ -424,7 +426,8 @@
             "claude-code",
             "codex",
             "mcp-proxy",
-            "mcp-http"
+            "mcp-http",
+            "cursor"
           ]
         }
       },
