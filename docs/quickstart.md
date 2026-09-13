@@ -1,5 +1,8 @@
 # Offline v0.3 quickstart
 
+For the 0.4 development branch, start with [setup and local verification](setup.md).
+This page remains the manual reference for the published v0.3.0 release.
+
 This guide targets the stable v0.3.0 tag or published wheel from the
 [installation guide](installation.md). Use a matching v0.3.0 checkout for
 fixtures; v0.2.0 does not contain the new Codex/HTTP/session/capture workflows.
