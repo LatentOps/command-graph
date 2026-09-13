@@ -303,6 +303,10 @@ def main(argv: Sequence[str] | None = None) -> int:
 
         return trace_main(trace_args[1:])
     raw_args = list(sys.argv[1:] if argv is None else argv)
+    if raw_args and raw_args[0] == "setup":
+        from .setup_cli import main as setup_main
+
+        return setup_main(raw_args[1:])
     if raw_args and raw_args[0] in {"mcp", "semantics"}:
         from .mcp_setup_cli import mcp_main, semantics_main
 
@@ -315,7 +319,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         prog="ordin",
         description="Intent-aware command discovery and safety checks.",
     )
+    from . import __version__
+
+    parser.add_argument("--version", action="version", version=__version__)
     subparsers = parser.add_subparsers(dest="command_name", required=True)
+    subparsers.add_parser(
+        "setup", help="Preview, install, verify and remove agent integration configuration"
+    )
     subparsers.add_parser("mcp", help="Inspect MCP tool contracts without calling tools")
     subparsers.add_parser("semantics", help="Scaffold, validate, and pin reviewed MCP semantics")
     subparsers.add_parser("contracts", help="Validate and compare reviewed MCP contract pins")

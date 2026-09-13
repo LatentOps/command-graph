@@ -11,6 +11,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 from pathlib import Path
 from typing import Any
 
@@ -100,6 +101,7 @@ def run_quickstarts() -> dict[str, Any]:
     scripts = Path(sys.executable).parent
     suffix = ".exe" if os.name == "nt" else ""
     checks = []
+    setup_acceptance = []
     with tempfile.TemporaryDirectory(prefix="ordin-quickstarts-") as directory:
         temporary = Path(directory)
 
@@ -147,6 +149,41 @@ def run_quickstarts() -> dict[str, Any]:
         checks.extend(["doctor", "shell_review"])
         assert AgentGate().evaluate("git status --short").may_execute
         checks.append("python_agent_gate")
+        if os.name == "posix":
+            for integration, options in (
+                ("claude", ["--state", "--audit", "--observations"]),
+                ("codex", ["--state"]),
+                ("cursor", ["--state", "--observations"]),
+                ("shell", ["--shell", "bash"]),
+                ("mcp", ["--server-id", "fixture", "--", sys.executable, "-m", "fixture_server"]),
+                ("mcp-http", ["--server-id", "fixture", "--upstream", "http://127.0.0.1:9999/mcp"]),
+            ):
+                setup_root = temporary / ("setup-" + integration)
+                common = ["--root", str(setup_root), "--json"]
+                assert cli("ordin", "setup", integration, *common, "--dry-run", *options)["ok"]
+                assert not setup_root.exists()
+                started = time.perf_counter()
+                assert cli("ordin", "setup", integration, *common, *options)["ok"]
+                assert cli("ordin", "setup", "smoke", integration, *common)["ok"]
+                setup_acceptance.append(
+                    {
+                        "integration": integration,
+                        "commands_to_fixture_smoke": 2,
+                        "seconds": time.perf_counter() - started,
+                        "excludes": [
+                            "package_install",
+                            "optional_preview",
+                            "host_trust",
+                            "MCP_human_semantics_review",
+                        ],
+                    }
+                )
+                assert cli("ordin", "setup", integration, *common, *options)["idempotent"]
+                assert cli("ordin", "setup", "status", integration, *common)["integrations"][0][
+                    "configured"
+                ]
+                assert cli("ordin", "setup", "remove", integration, *common)["ok"]
+            checks.append("setup_all_integrations_preview_smoke_remove")
         cursor = json.loads((ROOT / "examples/cursor-pre.json").read_text())
         cursor_env = {"ORDIN_CURSOR_STATE": str(temporary / "cursor.db")}
         assert cli("ordin-cursor-hook", "doctor")["runtime"] == "cursor"
@@ -342,6 +379,7 @@ def run_quickstarts() -> dict[str, Any]:
         "network_scope": "loopback fixtures only",
         "model_inference": False,
         "checks": checks,
+        "setup_acceptance": setup_acceptance,
     }
 
 

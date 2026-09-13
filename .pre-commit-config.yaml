@@ -46,6 +46,8 @@ repos:
           ordin/mcp_proxy.py
           ordin/mcp_inspection.py
           ordin/mcp_setup_cli.py
+          ordin/setup.py
+          ordin/setup_cli.py
           ordin/mcp_http.py
           ordin/http_evaluation.py
           ordin/mcp_contracts.py

@@ -7,6 +7,7 @@ Start with what you are trying to do. The implementation details are linked afte
 - [Installation](installation.md)
 - [Offline v0.3 quickstart](quickstart.md)
 - [Platform and integration compatibility](compatibility.md)
+- [Setup, smoke checks, status, and removal (0.4 development)](setup.md)
 - [Report a failure safely](feedback-intake.md)
 - [Bare intent CLI](bare-intent-cli.md)
 - [Generic action review](action-review.md)

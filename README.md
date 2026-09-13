@@ -155,6 +155,19 @@ semantics match exact identities. See the [Python API](docs/python-api.md) and
 
 ## Connect an agent or shell
 
+On the **0.4 development branch**, start with [safe setup](docs/setup.md):
+
+```sh
+ordin setup cursor --dry-run
+ordin setup cursor
+ordin setup smoke cursor
+```
+
+Choose `claude`, `codex`, `cursor`, `mcp`, `mcp-http`, or `shell`.
+`ordin setup status` checks configuration; `ordin setup remove cursor` removes an
+unchanged owned profile. Review host trust before real use. Existing files are
+preserved; the guides below retain manual configuration for v0.3 and advanced use.
+
 | Integration | Entry point | Guide |
 | --- | --- | --- |
 | Claude Code hooks | `ordin-claude-hook` | [Hook configuration and supported tools](docs/claude-code-integration.md) |
