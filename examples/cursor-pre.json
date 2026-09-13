@@ -1,0 +1,11 @@
+{
+  "hook_event_name": "preToolUse",
+  "conversation_id": "fixture-conversation",
+  "generation_id": "fixture-generation",
+  "cursor_version": "1.7.2",
+  "tool_use_id": "fixture-read",
+  "tool_name": "Shell",
+  "tool_input": {"command": "git status --short"},
+  "cwd": "/workspace",
+  "workspace_roots": ["/workspace"]
+}

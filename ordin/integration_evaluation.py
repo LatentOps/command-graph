@@ -617,6 +617,7 @@ def run_integration_evaluation(
             *_claude_workloads(repetitions),
             *_mcp_workloads(repetitions),
             *_codex_workloads(repetitions),
+            *_cursor_workloads(repetitions),
         ]
     )
     return IntegrationEvaluationReport(
@@ -699,6 +700,66 @@ def render_markdown_report(report: IntegrationEvaluationReport) -> str:
     lines.extend(f"- {item}" for item in payload["limitations"])
     lines.append("")
     return "\n".join(lines)
+
+
+def _cursor_workloads(repetitions: int) -> list[IntegrationWorkloadResult]:
+    from .cursor import CursorIntegration
+
+    integration = CursorIntegration()
+    results = []
+    specs: tuple[tuple[str, str, dict[str, Any], Decision], ...] = (
+        ("cursor-read", "Read", {"path": "/workspace/file"}, "allow"),
+        ("cursor-shell", "Shell", {"command": "git status"}, "allow"),
+        ("cursor-write", "Write", {"path": "/workspace/out"}, "warn"),
+        (
+            "cursor-patch",
+            "StrReplace",
+            {"path": "/workspace/out", "old_string": "a", "new_string": "b"},
+            "warn",
+        ),
+        ("cursor-destructive", "Shell", {"command": "rm -rf /"}, "block"),
+        ("cursor-unknown", "future_tool", {}, "ask"),
+    )
+    for case_id, tool, arguments, expected in specs:
+        payload = {
+            "hook_event_name": "preToolUse",
+            "conversation_id": "evaluation",
+            "generation_id": "turn",
+            "cursor_version": "1.7.2",
+            "tool_use_id": case_id,
+            "tool_name": tool,
+            "tool_input": arguments,
+            "cwd": "/workspace",
+        }
+        action = integration.adapt(payload)
+        core, _ = _measure(lambda: integration.gate.ordin.review_action(action), repetitions)
+        boundary, decision = _measure(lambda: integration.review_pre_tool(payload), repetitions)
+        observation = (
+            integration.observation_from_hook(
+                {**payload, "hook_event_name": "postToolUse", "tool_output": '{"exitCode":0}'}
+            )
+            if expected == "allow"
+            else None
+        )
+        review = _action_review(decision)
+        results.append(
+            IntegrationWorkloadResult(
+                id=case_id,
+                integration="cursor",
+                action_kind=action.kind,
+                expected=expected,
+                actual=review.decision,
+                integration_mapping_ok=integration.pre_tool_output(payload)["permission"]
+                == ("allow" if expected == "allow" else "deny"),
+                provenance_ok=_has_linked_provenance(review),
+                observation_expected=expected == "allow",
+                observation_ok=observation is None or observation.action_id == action.action_id,
+                core_latency_ns=core,
+                integration_latency_ns=boundary,
+                identity_control=expected == "ask",
+            )
+        )
+    return results
 
 
 def _codex_workloads(repetitions: int) -> list[IntegrationWorkloadResult]:

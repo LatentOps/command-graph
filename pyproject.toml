@@ -49,6 +49,7 @@ dev = [
 ordin = "ordin.entrypoint:main"
 ordin-claude-hook = "ordin.claude_code:main"
 ordin-codex-hook = "ordin.codex:main"
+ordin-cursor-hook = "ordin.cursor:main"
 ordin-mcp-proxy = "ordin.mcp_proxy:main"
 ordin-mcp-http = "ordin.mcp_http:main"
 

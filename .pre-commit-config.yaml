@@ -39,6 +39,7 @@ repos:
           ordin/_audit_storage.py
           ordin/claude_code.py
           ordin/codex.py
+          ordin/cursor.py
           ordin/execution.py
           ordin/mcp_proxy.py
           ordin/mcp_inspection.py

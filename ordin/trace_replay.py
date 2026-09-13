@@ -430,13 +430,14 @@ def replay_integration_candidate(candidate: Mapping[str, Any]) -> dict[str, Any]
     from .api import Ordin
     from .claude_code import ClaudeCodeIntegration
     from .codex import CodexIntegration
+    from .cursor import CursorIntegration, _identity as cursor_identity
     from .mcp_proxy import MCPStdioSafetyProxy
     from .policy import ReviewPolicy, validate_fail_threshold
     from .session import IntegrationSession, SessionIdentity
 
     case = validate_candidate(candidate)
     runtime = candidate["integration"]
-    if runtime not in {"claude-code", "codex", "mcp-proxy", "mcp-http"}:
+    if runtime not in {"claude-code", "codex", "cursor", "mcp-proxy", "mcp-http"}:
         return {
             "ok": False,
             "errors": ["integration reconstruction requires supported abstract tool actions"],
@@ -480,12 +481,19 @@ def replay_integration_candidate(candidate: Mapping[str, Any]) -> dict[str, Any]
             audit=collector,
         )
     )
-    state = IntegrationSession(SessionIdentity(runtime, "capture-fixture"), gate)
+    state = IntegrationSession(
+        cursor_identity({"conversation_id": "capture-fixture"})
+        if runtime == "cursor"
+        else SessionIdentity(runtime, "capture-fixture"),
+        gate,
+    )
     integration = (
         ClaudeCodeIntegration(gate=gate, session=state)
         if runtime == "claude-code"
         else CodexIntegration(gate=gate, session=state)
         if runtime == "codex"
+        else CursorIntegration(gate=gate, session=state)
+        if runtime == "cursor"
         else None
     )
     proxy = (
@@ -511,6 +519,8 @@ def replay_integration_candidate(candidate: Mapping[str, Any]) -> dict[str, Any]
         arguments = parameters.get("arguments", {})
         if step.action.kind == "shell":
             alias = "Bash" if integration is not None else "captured_path_execute"
+            if runtime == "cursor":
+                alias = "Shell"
             arguments = {"command": parameters["command"]}
         if integration is not None:
             payload = {
@@ -523,6 +533,13 @@ def replay_integration_candidate(candidate: Mapping[str, Any]) -> dict[str, Any]
                 "cwd": "/workspace",
                 "permission_mode": "default",
             }
+            if runtime == "cursor":
+                payload.update(
+                    hook_event_name="preToolUse",
+                    conversation_id="capture-fixture",
+                    generation_id="capture-turn",
+                    cursor_version="1.7.2",
+                )
             decision = integration.review_pre_tool(payload)
             actual = decision.review.decision
             categories = decision.review.trajectory_categories or []
@@ -530,8 +547,9 @@ def replay_integration_candidate(candidate: Mapping[str, Any]) -> dict[str, Any]
                 integration.observation_from_hook(
                     {
                         **payload,
-                        "hook_event_name": "PostToolUse",
+                        "hook_event_name": "postToolUse" if runtime == "cursor" else "PostToolUse",
                         "tool_response": {"exit_code": step.observation.exit_code},
+                        "tool_output": json.dumps({"exitCode": step.observation.exit_code}),
                     },
                     observed_effects=step.observation.effects,
                 )

@@ -23,6 +23,10 @@ Agent tests exercise the maintained hooks without requiring proprietary agent
 binaries. They do not certify every host-agent version, approval UI, hosted
 tool, credential configuration, or external MCP server.
 
+The 0.4 development branch also runs Cursor native hook fixtures, subprocess
+evaluation, and installed-wheel lifecycle checks on the maintained Linux/macOS
+matrix. Cursor is absent from v0.3.0. See its [contract and host limitations](cursor-integration.md).
+
 The macOS job pins the `macos-15` runner label instead of following the moving
 `macos-latest` label. The runner's architecture and supported labels are listed
 in [GitHub's runner reference](https://docs.github.com/en/actions/reference/runners/github-hosted-runners).

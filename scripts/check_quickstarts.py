@@ -133,6 +133,7 @@ def run_quickstarts() -> dict[str, Any]:
             "ordin",
             "ordin-claude-hook",
             "ordin-codex-hook",
+            "ordin-cursor-hook",
             "ordin-mcp-proxy",
             "ordin-mcp-http",
         ):
@@ -146,6 +147,32 @@ def run_quickstarts() -> dict[str, Any]:
         checks.extend(["doctor", "shell_review"])
         assert AgentGate().evaluate("git status --short").may_execute
         checks.append("python_agent_gate")
+        cursor = json.loads((ROOT / "examples/cursor-pre.json").read_text())
+        cursor_env = {"ORDIN_CURSOR_STATE": str(temporary / "cursor.db")}
+        assert cli("ordin-cursor-hook", "doctor")["runtime"] == "cursor"
+        cli(
+            "ordin-cursor-hook",
+            "session-start",
+            payload={**cursor, "hook_event_name": "sessionStart"},
+            extra_env=cursor_env,
+        )
+        assert (
+            cli("ordin-cursor-hook", "pre", payload=cursor, extra_env=cursor_env)["permission"]
+            == "allow"
+        )
+        cli(
+            "ordin-cursor-hook",
+            "post",
+            payload={**cursor, "hook_event_name": "postToolUse", "tool_output": '{"exitCode":0}'},
+            extra_env=cursor_env,
+        )
+        cli(
+            "ordin-cursor-hook",
+            "session-end",
+            payload={**cursor, "hook_event_name": "sessionEnd"},
+            extra_env=cursor_env,
+        )
+        checks.append("cursor_hooks_and_persistence")
 
         claude = json.loads((ROOT / "examples/claude-code-pre.json").read_text())
         state_env = {"ORDIN_CLAUDE_STATE": str(temporary / "claude.db")}
@@ -199,6 +226,7 @@ def run_quickstarts() -> dict[str, Any]:
         )
         cli(
             "ordin-codex-hook",
+            "ordin-cursor-hook",
             "post",
             payload={**codex, "hook_event_name": "PostToolUse", "tool_response": {"exit_code": 0}},
         )
