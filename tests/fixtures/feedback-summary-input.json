@@ -1,0 +1,28 @@
+{
+  "schema_version": "ordin.feedback_summary_input.v1",
+  "reports": [
+    {
+      "integration": "mcp-proxy",
+      "failure": "unnecessary_escalation",
+      "disposition": "expected_behavior",
+      "setup_stage": "none",
+      "regression": true
+    },
+    {
+      "integration": "codex",
+      "failure": "setup_failure",
+      "disposition": "documentation_only",
+      "setup_stage": "host_enablement",
+      "regression": false,
+      "minutes_to_first_working": 12
+    },
+    {
+      "integration": "claude-code",
+      "failure": "setup_failure",
+      "disposition": "fixed",
+      "setup_stage": "configuration",
+      "regression": false,
+      "minutes_to_first_working": 8
+    }
+  ]
+}
