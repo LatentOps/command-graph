@@ -226,7 +226,6 @@ def run_quickstarts() -> dict[str, Any]:
         )
         cli(
             "ordin-codex-hook",
-            "ordin-cursor-hook",
             "post",
             payload={**codex, "hook_event_name": "PostToolUse", "tool_response": {"exit_code": 0}},
         )
