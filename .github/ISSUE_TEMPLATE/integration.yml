@@ -1,0 +1,136 @@
+name: Integration / setup bug
+description: Report host wiring, setup friction, or runtime behavior.
+title: '[Integration] '
+body:
+- type: markdown
+  attributes:
+    value: 'Do not paste API keys, tokens, cookies, credentials, private repository contents,
+
+      full prompts/conversations, proprietary command output, private URLs/hostnames,
+
+      or raw unsanitized trace databases. Keep even metadata databases private.
+
+
+      For vulnerabilities or sensitive safety bypasses, stop here and use
+
+      [private vulnerability reporting](https://github.com/LatentOps/ordin/security/advisories/new).
+
+      See [safe feedback intake](https://github.com/LatentOps/ordin/blob/main/docs/feedback-intake.md)
+
+      for local sanitization, offline replay, and the attachment contract. Nothing is uploaded automatically.'
+- type: checkboxes
+  id: privacy
+  attributes:
+    label: Privacy check
+    options:
+    - label: This report contains only public or synthetic information and no vulnerability details
+        requiring private disclosure.
+      required: true
+  validations:
+    required: true
+- type: input
+  id: ordin_version
+  attributes:
+    label: Ordin version or commit
+    description: Use ordin --version; no environment dumps.
+  validations:
+    required: true
+- type: dropdown
+  id: integration
+  attributes:
+    label: Integration
+    options:
+    - Claude Code
+    - Codex
+    - Cursor
+    - MCP stdio
+    - MCP HTTP
+    - Shell
+    - Python/API
+    - Unknown
+  validations:
+    required: true
+- type: input
+  id: environment
+  attributes:
+    label: Host version, OS, Python version
+    description: Versions only; do not paste usernames, machine names, paths, or full doctor output.
+  validations:
+    required: true
+- type: dropdown
+  id: failure
+  attributes:
+    label: Failure class
+    options:
+    - False allow / critical miss
+    - False block
+    - Unnecessary ask / escalation
+    - Identity mismatch
+    - Contract drift mismatch
+    - Session/history or reset
+    - Observation correlation
+    - Parser/transport
+    - Policy/semantics confusion
+    - Setup failure
+    - Documentation/onboarding
+    - Performance/latency
+    - Platform-specific
+  validations:
+    required: true
+- type: textarea
+  id: behavior
+  attributes:
+    label: Expected and actual behavior
+    description: State the invariant and decision/behavior difference without private arguments or
+      outputs.
+  validations:
+    required: true
+- type: dropdown
+  id: history
+  attributes:
+    label: Session history involved?
+    options:
+    - 'No'
+    - 'Yes'
+    - Unknown
+  validations:
+    required: true
+- type: textarea
+  id: reproduction
+  attributes:
+    label: Minimal local reproduction
+    description: Use synthetic paths/data. Include offline replay results or explain what cannot be
+      reproduced; no network credentials.
+  validations:
+    required: true
+- type: dropdown
+  id: capture
+  attributes:
+    label: Sanitized candidate available?
+    options:
+    - 'No'
+    - Yes, reviewed candidate JSON only
+    - Not representable by semantic reconstruction
+  validations:
+    required: true
+- type: dropdown
+  id: setup_stage
+  attributes:
+    label: Setup stage
+    options:
+    - Installation
+    - Discovery
+    - Configuration
+    - Host enablement
+    - Semantics review
+    - Smoke verification
+    - Not setup-related
+  validations:
+    required: true
+- type: input
+  id: setup_minutes
+  attributes:
+    label: Minutes to first working integration (optional)
+    description: A number only; leave blank if unknown or not yet working.
+  validations:
+    required: false

@@ -6,6 +6,10 @@ project local-first, explainable, and useful without cloud services.
 
 ## Development setup
 
+For bugs and setup friction, start with the [safe feedback intake guide](docs/feedback-intake.md).
+It covers structured reports, sanitized captures, private vulnerability disclosure,
+and promotion of reproducible failures into permanent regressions.
+
 Install the project and repository tooling into a development environment:
 
 ```bash
