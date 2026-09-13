@@ -190,6 +190,8 @@ def test_mcp_setup_requires_reviewed_pins_and_keeps_unknowns_untrusted(tmp_path)
     changed = replace(lock, semantics_digest="0" * 64)
     Path(options["contract_lock"]).write_text(json.dumps(changed.as_dict()))
     assert not status(root, "mcp")["configured"]
+    assert remove(root, "mcp")["ok"]
+    assert Path(options["contract_lock"]).exists()
 
 
 @pytest.mark.parametrize(

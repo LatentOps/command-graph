@@ -90,7 +90,7 @@ def _relative(value: str) -> str:
     return path.as_posix()
 
 
-def validate_settings(settings: dict[str, Any]) -> None:
+def validate_settings(settings: dict[str, Any], *, validate_contracts: bool = True) -> None:
     if set(settings) != SETTINGS or settings["integration"] not in TARGETS:
         raise SetupError("invalid_setup_settings")
     relative = _relative(settings["config"])
@@ -146,7 +146,7 @@ def validate_settings(settings: dict[str, Any]) -> None:
         supplied = [bool(settings[key]) for key in ("semantics", "inventory", "contract_lock")]
         if any(supplied) and not all(supplied):
             raise SetupError("reviewed_inventory_semantics_and_lock_required_together")
-        if all(supplied):
+        if all(supplied) and validate_contracts:
             registry = load_tool_semantics(settings["semantics"])
             inventory = load_inventory(settings["inventory"])
             lock = MCPContractLock.from_dict(load_contract_json(settings["contract_lock"]))
@@ -183,8 +183,10 @@ def hook_environment(settings: dict[str, Any], root: Path) -> dict[str, str]:
     } | {prefix + "_TRACE_RAW": "0"}
 
 
-def config_content(settings: dict[str, Any], root: Path) -> bytes:
-    validate_settings(settings)
+def config_content(
+    settings: dict[str, Any], root: Path, *, validate_contracts: bool = True
+) -> bytes:
+    validate_settings(settings, validate_contracts=validate_contracts)
     integration = settings["integration"]
     python = settings["python"]
     if integration in MODULES:
@@ -268,9 +270,11 @@ def receipt_path(root: Path, integration: str) -> Path:
     return root / ".ordin/setup" / (integration + ".json")
 
 
-def planned_files(settings: dict[str, Any], root: Path) -> dict[Path, bytes]:
+def planned_files(
+    settings: dict[str, Any], root: Path, *, validate_contracts: bool = True
+) -> dict[Path, bytes]:
     config = root / _relative(settings["config"])
-    content = config_content(settings, root)
+    content = config_content(settings, root, validate_contracts=validate_contracts)
     receipt = {
         "schema_version": "ordin.setup_receipt.v1",
         "settings": settings,
@@ -386,7 +390,7 @@ def apply(settings: dict[str, Any], root: Path) -> dict[str, Any]:
         }
 
 
-def load_owned(root: Path, integration: str) -> dict[str, Any]:
+def load_owned(root: Path, integration: str, *, validate_contracts: bool = True) -> dict[str, Any]:
     path = receipt_path(root, integration)
     _guard(path, root, private=True)
     receipt = load_configuration(path, label="setup receipt", maximum=1048576)
@@ -399,7 +403,7 @@ def load_owned(root: Path, integration: str) -> dict[str, Any]:
     settings = receipt["settings"]
     if settings.get("integration") != integration:
         raise SetupError("setup_receipt_identity_mismatch")
-    files = planned_files(settings, root)
+    files = planned_files(settings, root, validate_contracts=validate_contracts)
     if files[path] != _read(path, root):
         raise SetupError("setup_receipt_changed")
     for target, content in files.items():
@@ -410,8 +414,10 @@ def load_owned(root: Path, integration: str) -> dict[str, Any]:
 
 def remove(root: Path, integration: str, *, dry_run: bool = False) -> dict[str, Any]:
     def perform() -> dict[str, Any]:
-        settings = load_owned(root, integration)
-        paths = list(planned_files(settings, root))
+        # Rollback still works if a referenced inventory or lock has drifted.
+        # Only the unchanged owned config and receipt are removed.
+        settings = load_owned(root, integration, validate_contracts=False)
+        paths = list(planned_files(settings, root, validate_contracts=False))
         if not dry_run:
             for path in reversed(paths):
                 path.unlink()
