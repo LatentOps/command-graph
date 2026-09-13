@@ -92,6 +92,7 @@ its configured server. The runtime owns sandboxing, credentials, and approvals.
 ## I want to evaluate Ordin
 
 - [Local integration evaluation and recorded reports](integration-evaluation.md)
+- [Agent Safety Corpus v1 (0.4 development)](agent-safety-corpus.md)
 - [Adapter conformance](integration-conformance.md)
 - [Agent trajectory corpus](agent-trajectory-corpus.md)
 - [Failure replay](failure-regressions.md)
