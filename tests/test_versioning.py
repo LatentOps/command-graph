@@ -5,7 +5,7 @@ from packaging.version import Version
 import ordin
 
 
-LAST_PUBLISHED_VERSION = "0.2.0"
+LAST_PUBLISHED_VERSION = "0.3.0"
 
 
 def test_runtime_version_matches_installed_distribution():
