@@ -79,7 +79,11 @@ def create_http_fixture(
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(raw)))
             self.end_headers()
-            self.wfile.write(raw)
+            try:
+                self.wfile.write(raw)
+            except ConnectionError:
+                # Deadline controls intentionally close the fixture connection.
+                return
 
         def do_GET(self) -> None:
             self.send_response(405)

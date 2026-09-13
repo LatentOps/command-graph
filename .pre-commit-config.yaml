@@ -28,6 +28,8 @@ repos:
           ordin/regression_promotion.py
           ordin/integration_conformance.py
           ordin/integration_evaluation.py
+          ordin/agent_safety_corpus.py
+          ordin/corpus_controls.py
           ordin/runtime_evaluation.py
           ordin/diagnostics.py
           ordin/adapters.py

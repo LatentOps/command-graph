@@ -71,6 +71,8 @@ jobs:
           --repetitions 5
           --json-out runtime-integration-evaluation-report.json
           --markdown-out runtime-integration-evaluation-report.md
+      - name: Replay the complete versioned Agent Safety Corpus
+        run: python scripts/run_agent_safety_corpus.py --revision "${GITHUB_SHA}" --output agent-safety-corpus-report
       - name: Upload safety benchmark reports
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -84,6 +86,8 @@ jobs:
             integration-evaluation-report.md
             runtime-integration-evaluation-report.json
             runtime-integration-evaluation-report.md
+            agent-safety-corpus-report/report.json
+            agent-safety-corpus-report/report.md
           if-no-files-found: error
 
   test:
